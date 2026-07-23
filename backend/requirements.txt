@@ -1,0 +1,29 @@
+# --- Core (installed + verified in Phase 1) ---
+fastapi==0.139.2
+uvicorn[standard]==0.51.0
+sqlalchemy==2.0.51
+alembic==1.18.5
+psycopg[binary]==3.3.4
+pydantic==2.13.4
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+pgvector==0.5.0
+python-multipart==0.0.32
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx==0.28.1
+
+# --- Reasoning / orchestration (added + version-pinned when Phase 2 / Phase 5 land) ---
+anthropic
+langgraph
+langgraph-checkpoint-postgres
+langchain
+langchain-anthropic
+langchain-community
+
+# --- Schema validation / observability (added + version-pinned when Phase 5 lands) ---
+guardrails-ai
+langfuse
+
+# --- FHIR export (added + version-pinned when Phase 8 lands) ---
+fhir.resources
