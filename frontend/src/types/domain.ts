@@ -146,6 +146,10 @@ export interface PipelineRunResult {
   citation_count: number
   verdict_count: number
   open_clarification_count: number
+  normalized_claim_count: number
+  note_id: string | null
+  note_version: number | null
+  awaiting_review: boolean
 }
 
 export interface PipelineTraceEntry {
@@ -154,4 +158,45 @@ export interface PipelineTraceEntry {
   next: string[]
   result: Record<string, unknown> | null
   values: Record<string, unknown>
+}
+
+export type SoapSection = 'subjective' | 'objective' | 'assessment' | 'plan'
+
+export type NoteStatus = 'draft' | 'under_review' | 'signed'
+
+export interface SoapNoteLine {
+  id: string
+  note_id: string
+  section: SoapSection
+  position: number
+  text: string
+  is_conflict: boolean
+  is_rejected: boolean
+  claim_ids: string[]
+}
+
+export interface SoapNote {
+  id: string
+  encounter_id: string
+  version: number
+  status: NoteStatus
+  signed_by: string | null
+  signed_at: string | null
+  created_at: string
+  lines: SoapNoteLine[]
+}
+
+export type AttestationAction = 'accepted' | 'edited' | 'rejected' | 'added'
+
+export interface Attestation {
+  id: string
+  encounter_id: string
+  note_version_id: string | null
+  note_line_id: string | null
+  claim_id: string | null
+  actor_id: string
+  action: AttestationAction
+  before_value: string | null
+  after_value: string | null
+  created_at: string
 }

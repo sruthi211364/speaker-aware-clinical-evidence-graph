@@ -13,6 +13,7 @@ import {
 import ClaimGraphView from '../components/ClaimGraphView'
 import ClarificationQueue from '../components/ClarificationQueue'
 import PipelineTraceView from '../components/PipelineTraceView'
+import SoapNoteView from '../components/SoapNoteView'
 import TranscriptView from '../components/TranscriptView'
 
 const TABS = ['Transcript', 'Claim Graph', 'SOAP Note', 'Clarifications', 'Audit & Lineage'] as const
@@ -196,11 +197,7 @@ export default function EncounterDetailPage() {
 
         {activeTab === 'Audit & Lineage' && <PipelineTraceView encounterId={encounterId!} />}
 
-        {activeTab === 'SOAP Note' && (
-          <div className="rounded-md border border-dashed border-slate-300 p-8 text-center text-slate-500">
-            {activeTab} arrives in a later phase.
-          </div>
-        )}
+        {activeTab === 'SOAP Note' && <SoapNoteView encounterId={encounterId!} />}
       </div>
     </div>
   )

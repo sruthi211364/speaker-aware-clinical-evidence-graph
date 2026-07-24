@@ -19,6 +19,9 @@ export default function PipelineTraceView({ encounterId }: { encounterId: string
       queryClient.invalidateQueries({ queryKey: ['pipeline-trace', encounterId] })
       queryClient.invalidateQueries({ queryKey: ['claim-graph', encounterId] })
       queryClient.invalidateQueries({ queryKey: ['clarifications', encounterId] })
+      queryClient.invalidateQueries({ queryKey: ['soap-note', encounterId] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline-status', encounterId] })
+      queryClient.invalidateQueries({ queryKey: ['encounter', encounterId] })
     },
   })
 

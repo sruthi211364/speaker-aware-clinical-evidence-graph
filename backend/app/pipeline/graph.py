@@ -10,20 +10,31 @@ can be inspected node-by-node after the fact via get_pipeline_trace -- this
 is the technical trace that sits alongside the clinician-facing attestation
 trail in the audit view (Phase 8).
 
-Phases 7-9 extend this graph with more nodes appended after
-normalize_terminology (SOAP compilation, the clinician-review interrupt,
-signing) rather than replacing it.
+Phase 7 extends this graph with compile_soap_note and clinician_review
+(a genuine LangGraph interrupt() that pauses the graph -- and persists that
+pause to the Postgres checkpointer -- until POST .../pipeline/resume-review
+sends a Command(resume=...) to continue it). Re-invoking run_pipeline while
+paused restarts the graph from START rather than continuing the interrupt;
+that is safe here only because every node's underlying step function is
+already idempotent per encounter, so replaying ingest..compile_soap_note is
+a no-op and the graph lands back on the same pending interrupt.
+
+Phases 8-9 extend this graph with more nodes appended after
+clinician_review (signing) rather than replacing it.
 """
 
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
 
 from app.db import SessionLocal
-from app.models import ClarificationQuestion, Encounter, TranscriptSegment
+from app.models import ClarificationQuestion, Encounter, SoapNote, TranscriptSegment
+from app.models.enums import EncounterStatus, NoteStatus
 from app.pipeline.checkpointer import checkpointer_context
 from app.pipeline.steps import (
     build_graph_step,
+    compile_soap_note_step,
     extract_claims_step,
     ground_claims_step,
     normalize_terminology_step,
@@ -40,6 +51,10 @@ class PipelineState(TypedDict):
     verdict_count: int
     open_clarification_count: int
     normalized_claim_count: int
+    note_id: str | None
+    note_version: int | None
+    review_completed: bool
+    review_decision: str | None
 
 
 def _node_ingest(state: PipelineState) -> dict:
@@ -106,6 +121,47 @@ def _node_normalize_terminology(state: PipelineState) -> dict:
         db.close()
 
 
+def _node_compile_soap_note(state: PipelineState) -> dict:
+    db = SessionLocal()
+    try:
+        encounter = db.get(Encounter, state["encounter_id"])
+        note = compile_soap_note_step(db, encounter)
+        if encounter.status == EncounterStatus.in_progress:
+            encounter.status = EncounterStatus.drafted
+            db.commit()
+        return {"note_id": str(note.id), "note_version": note.version}
+    finally:
+        db.close()
+
+
+def _node_clinician_review(state: PipelineState) -> dict:
+    # Runs in full from the top both when it first pauses and again when it
+    # resumes (LangGraph re-executes the whole node function on resume) --
+    # the "mark under_review" write before interrupt() is safe to repeat.
+    db = SessionLocal()
+    try:
+        note = db.get(SoapNote, state["note_id"]) if state.get("note_id") else None
+        if note and note.status == NoteStatus.draft:
+            note.status = NoteStatus.under_review
+            db.commit()
+
+        decision = interrupt(
+            {
+                "encounter_id": state["encounter_id"],
+                "note_id": state.get("note_id"),
+                "message": "Compiled SOAP note ready for clinician review.",
+            }
+        )
+
+        encounter = db.get(Encounter, state["encounter_id"])
+        if encounter and encounter.status == EncounterStatus.drafted:
+            encounter.status = EncounterStatus.reviewed
+            db.commit()
+        return {"review_completed": True, "review_decision": str(decision)}
+    finally:
+        db.close()
+
+
 def _build_graph(checkpointer):
     builder = StateGraph(PipelineState)
     builder.add_node("ingest", _node_ingest)
@@ -114,6 +170,8 @@ def _build_graph(checkpointer):
     builder.add_node("ground_claims", _node_ground_claims)
     builder.add_node("run_policy_engine", _node_run_policy_engine)
     builder.add_node("normalize_terminology", _node_normalize_terminology)
+    builder.add_node("compile_soap_note", _node_compile_soap_note)
+    builder.add_node("clinician_review", _node_clinician_review)
 
     builder.add_edge(START, "ingest")
     builder.add_edge("ingest", "extract_claims")
@@ -121,7 +179,9 @@ def _build_graph(checkpointer):
     builder.add_edge("build_graph", "ground_claims")
     builder.add_edge("ground_claims", "run_policy_engine")
     builder.add_edge("run_policy_engine", "normalize_terminology")
-    builder.add_edge("normalize_terminology", END)
+    builder.add_edge("normalize_terminology", "compile_soap_note")
+    builder.add_edge("compile_soap_note", "clinician_review")
+    builder.add_edge("clinician_review", END)
 
     return builder.compile(checkpointer=checkpointer)
 
@@ -130,10 +190,47 @@ def _thread_config(encounter_id: str) -> dict:
     return {"configurable": {"thread_id": str(encounter_id)}}
 
 
-def run_pipeline(encounter_id: str) -> PipelineState:
+def _with_awaiting_review(graph, encounter_id: str, result: dict) -> dict:
+    result = dict(result)
+    result.pop("__interrupt__", None)
+    state = graph.get_state(_thread_config(encounter_id))
+    result["awaiting_review"] = "clinician_review" in state.next
+    return result
+
+
+def run_pipeline(encounter_id: str) -> dict:
+    """Runs (or resumes progress toward) the full pipeline. If the graph is
+    already paused at the clinician_review interrupt for this encounter,
+    re-invoking restarts from START -- safe because every earlier step is
+    idempotent per encounter, so it lands right back on the same pending
+    review rather than duplicating any work."""
     with checkpointer_context() as checkpointer:
         graph = _build_graph(checkpointer)
-        return graph.invoke({"encounter_id": str(encounter_id)}, config=_thread_config(encounter_id))
+        result = graph.invoke({"encounter_id": str(encounter_id)}, config=_thread_config(encounter_id))
+        return _with_awaiting_review(graph, encounter_id, result)
+
+
+def resume_pipeline_review(encounter_id: str) -> dict:
+    """Sends the clinician's "I'm done reviewing" signal into the paused
+    clinician_review node's interrupt(), letting the graph continue past it.
+    The clinician's actual accept/edit/reject actions were already written
+    directly to the SoapNote/Attestation tables by the dedicated review
+    endpoints -- this call only unblocks the graph itself."""
+    with checkpointer_context() as checkpointer:
+        graph = _build_graph(checkpointer)
+        result = graph.invoke(Command(resume={"action": "review_complete"}), config=_thread_config(encounter_id))
+        return _with_awaiting_review(graph, encounter_id, result)
+
+
+def get_pipeline_status(encounter_id: str) -> dict:
+    """Cheap read of where this encounter's pipeline run currently stands,
+    without invoking any node."""
+    with checkpointer_context() as checkpointer:
+        graph = _build_graph(checkpointer)
+        state = graph.get_state(_thread_config(encounter_id))
+        values = dict(state.values)
+        values["awaiting_review"] = "clinician_review" in state.next
+        return values
 
 
 # Maps each node's distinctive output key to the node that wrote it, so the
@@ -148,6 +245,8 @@ _STATE_KEY_TO_NODE = {
     "citation_count": "ground_claims",
     "verdict_count": "run_policy_engine",
     "normalized_claim_count": "normalize_terminology",
+    "note_id": "compile_soap_note",
+    "review_completed": "clinician_review",
 }
 
 

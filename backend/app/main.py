@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
+    attestations,
     claims,
     clarifications,
     encounters,
@@ -10,6 +11,7 @@ from app.api import (
     health,
     pipeline,
     policy,
+    soap_notes,
     terminology,
     transcripts,
 )
@@ -36,4 +38,6 @@ app.include_router(grounding.router)
 app.include_router(policy.router)
 app.include_router(clarifications.router)
 app.include_router(terminology.router)
+app.include_router(soap_notes.router)
+app.include_router(attestations.router)
 app.include_router(pipeline.router)

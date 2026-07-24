@@ -60,3 +60,46 @@ def test_get_pipeline_trace_returns_node_history(client):
 def test_pipeline_endpoints_404_for_unknown_encounter(client):
     resp = client.post("/encounters/00000000-0000-0000-0000-000000000000/pipeline/run")
     assert resp.status_code == 404
+
+
+def test_get_pipeline_status_reports_awaiting_review(client):
+    encounter = client.post("/encounters", json={}).json()
+
+    fake_status = {
+        "encounter_id": encounter["id"],
+        "claim_count": 2,
+        "note_id": "11111111-1111-1111-1111-111111111111",
+        "note_version": 1,
+        "awaiting_review": True,
+    }
+    with patch("app.api.pipeline.get_pipeline_status", return_value=fake_status):
+        resp = client.get(f"/encounters/{encounter['id']}/pipeline/status")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["awaiting_review"] is True
+    assert body["note_id"] == "11111111-1111-1111-1111-111111111111"
+
+
+def test_resume_review_rejects_when_nothing_is_pending(client):
+    encounter = client.post("/encounters", json={}).json()
+
+    with patch("app.api.pipeline.get_pipeline_status", return_value={"awaiting_review": False}):
+        resp = client.post(f"/encounters/{encounter['id']}/pipeline/resume-review")
+
+    assert resp.status_code == 409
+
+
+def test_resume_review_resumes_when_awaiting_review(client):
+    encounter = client.post("/encounters", json={}).json()
+
+    fake_result = {"note_id": "abc", "note_version": 1, "awaiting_review": False}
+    with (
+        patch("app.api.pipeline.get_pipeline_status", return_value={"awaiting_review": True}),
+        patch("app.api.pipeline.resume_pipeline_review", return_value=fake_result) as mock_resume,
+    ):
+        resp = client.post(f"/encounters/{encounter['id']}/pipeline/resume-review")
+
+    assert resp.status_code == 200
+    assert resp.json()["awaiting_review"] is False
+    mock_resume.assert_called_once_with(encounter["id"])

@@ -37,13 +37,16 @@ class ClarificationAnswerRequest(BaseModel):
 
 class PipelineRunResult(BaseModel):
     encounter_id: str
-    transcript_segment_count: int
-    claim_count: int
-    edge_count: int
-    citation_count: int
-    verdict_count: int
-    open_clarification_count: int
-    normalized_claim_count: int
+    transcript_segment_count: int = 0
+    claim_count: int = 0
+    edge_count: int = 0
+    citation_count: int = 0
+    verdict_count: int = 0
+    open_clarification_count: int = 0
+    normalized_claim_count: int = 0
+    note_id: str | None = None
+    note_version: int | None = None
+    awaiting_review: bool = False
 
 
 class PipelineTraceEntry(BaseModel):

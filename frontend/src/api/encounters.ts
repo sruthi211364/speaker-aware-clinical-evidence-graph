@@ -1,4 +1,5 @@
 import type {
+  Attestation,
   Claim,
   ClaimGraph,
   ClarificationQuestion,
@@ -7,6 +8,7 @@ import type {
   PipelineRunResult,
   PipelineTraceEntry,
   PolicyVerdict,
+  SoapNote,
   TranscriptSegment,
 } from '../types/domain'
 import { apiClient } from './client'
@@ -102,5 +104,58 @@ export async function runPipeline(encounterId: string): Promise<PipelineRunResul
 
 export async function getPipelineTrace(encounterId: string): Promise<PipelineTraceEntry[]> {
   const res = await apiClient.get(`/encounters/${encounterId}/pipeline/trace`)
+  return res.data
+}
+
+export async function getPipelineStatus(encounterId: string): Promise<PipelineRunResult> {
+  const res = await apiClient.get(`/encounters/${encounterId}/pipeline/status`)
+  return res.data
+}
+
+export async function resumePipelineReview(encounterId: string): Promise<PipelineRunResult> {
+  const res = await apiClient.post(`/encounters/${encounterId}/pipeline/resume-review`)
+  return res.data
+}
+
+export async function compileSoapNote(encounterId: string): Promise<SoapNote> {
+  const res = await apiClient.post(`/encounters/${encounterId}/notes/compile`)
+  return res.data
+}
+
+export async function getLatestSoapNote(encounterId: string): Promise<SoapNote> {
+  const res = await apiClient.get(`/encounters/${encounterId}/notes/latest`)
+  return res.data
+}
+
+export async function acceptNoteLine(
+  encounterId: string,
+  noteId: string,
+  lineId: string,
+): Promise<Attestation> {
+  const res = await apiClient.post(`/encounters/${encounterId}/notes/${noteId}/lines/${lineId}/accept`)
+  return res.data
+}
+
+export async function editNoteLine(
+  encounterId: string,
+  noteId: string,
+  lineId: string,
+  text: string,
+): Promise<Attestation> {
+  const res = await apiClient.post(`/encounters/${encounterId}/notes/${noteId}/lines/${lineId}/edit`, { text })
+  return res.data
+}
+
+export async function rejectNoteLine(
+  encounterId: string,
+  noteId: string,
+  lineId: string,
+): Promise<Attestation> {
+  const res = await apiClient.post(`/encounters/${encounterId}/notes/${noteId}/lines/${lineId}/reject`)
+  return res.data
+}
+
+export async function listAttestations(encounterId: string): Promise<Attestation[]> {
+  const res = await apiClient.get(`/encounters/${encounterId}/attestations`)
   return res.data
 }

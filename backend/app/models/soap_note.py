@@ -45,6 +45,10 @@ class SoapNoteLine(Base):
     # simple join table (SoapNoteLineClaim) rather than a plain string column
     # -- see relationship below.
     is_conflict: Mapped[bool] = mapped_column(default=False)
+    # Rejected lines stay in the note (never silently deleted -- an
+    # attestation already recorded the rejection) but are flagged so the UI
+    # can grey them out instead of presenting them as part of the record.
+    is_rejected: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[dt.datetime] = mapped_column(default=dt.datetime.utcnow)
 
     note: Mapped["SoapNote"] = relationship(back_populates="lines")

@@ -17,7 +17,7 @@ stored as a versioned attestation, so there is a full lineage from raw
 encounter to signed record.
 
 This is a portfolio/prototype build, developed iteratively phase by phase.
-Current status: **Phase 6 of 10 complete** (see [Build phases](#build-phases)).
+Current status: **Phase 7 of 10 complete** (see [Build phases](#build-phases)).
 
 ## Why this exists
 
@@ -50,17 +50,28 @@ Ingestion → Claim extraction → Graph construction → RAG grounding
 
 From Phase 5 onward this pipeline is a **LangGraph** state graph
 (`backend/app/pipeline/graph.py`): `ingest -> extract_claims -> build_graph
--> ground_claims -> run_policy_engine`, checkpointed to Postgres per encounter
-(`thread_id = encounter_id`) via `PostgresSaver`. Every node transition is
-persisted, so a run can be inspected step by step after the fact --
-`GET /encounters/{id}/pipeline/trace` and the "Audit & Lineage" tab expose
-this. Each node is a thin wrapper around the same step functions
+-> ground_claims -> run_policy_engine -> normalize_terminology ->
+compile_soap_note -> clinician_review`, checkpointed to Postgres per
+encounter (`thread_id = encounter_id`) via `PostgresSaver`. Every node
+transition is persisted, so a run can be inspected step by step after the
+fact -- `GET /encounters/{id}/pipeline/trace` and the "Audit & Lineage" tab
+expose this. Each node is a thin wrapper around the same step functions
 (`backend/app/pipeline/steps.py`) that the individual per-stage REST
 endpoints call directly, so there is exactly one implementation of each
-stage regardless of which entry point triggers it. Phase 7 adds a genuine
-`interrupt()` at the clinician review node (the graph pauses and persists
-state; the API resumes it exactly where it left off once the clinician acts
--- no polling).
+stage regardless of which entry point triggers it.
+
+`clinician_review` is a genuine LangGraph `interrupt()`: the node calls
+`interrupt(...)`, which pauses the graph and persists its full state to the
+Postgres checkpointer -- there is no polling loop, the process can restart,
+and the run resumes exactly where it left off. `POST
+/encounters/{id}/pipeline/resume-review` sends `Command(resume=...)` to
+unblock it once the clinician is done acting on the note (accept/edit/reject
+-- see `POST .../notes/{note_id}/lines/{line_id}/accept|edit|reject`, each of
+which writes an `Attestation` directly to the DB, independent of the graph's
+own state). Re-invoking `POST .../pipeline/run` while already paused
+restarts the graph from `START` rather than resuming the interrupt in place
+-- safe here only because every earlier step is idempotent per encounter, so
+the replay is a no-op and the graph lands back on the same pending review.
 
 *Implementation note:* the trace endpoint identifies which node produced
 each checkpoint by diffing state keys against a fixed key→node map, rather
@@ -92,8 +103,8 @@ or traversal complexity ever outgrows relational joins.
 - **Backend**: FastAPI, SQLAlchemy 2.0, Alembic, Postgres + pgvector, Python 3.11
 - **Reasoning**: Claude (Anthropic) via structured outputs, orchestrated with LangGraph (from Phase 5)
 - **Retrieval**: pgvector for two RAG indexes (clinical knowledge, longitudinal patient history), with local embeddings via `fastembed`/`bge-small-en-v1.5` -- see [deviations](#deviations-from-the-original-brief) below
-- **Validation**: Guardrails AI as an independent schema check ahead of the clinical policy engine (from Phase 5)
-- **Observability**: Langfuse tracing on every Claude call (from Phase 5)
+- **Validation**: Pydantic schemas via `client.messages.parse()` for every structured Claude output, plus defensive re-validation of every model-generated cross-reference (segment/claim index) at both the service and API layers -- see [deviations](#deviations-from-the-original-brief) re: Guardrails AI
+- **Observability**: none beyond structured logging -- see [deviations](#deviations-from-the-original-brief) re: Langfuse
 - **FHIR export**: `fhir.resources` (Composition/Observation/Condition/DocumentReference) (from Phase 8)
 - **Frontend**: React + TypeScript + Vite, TanStack Query, React Router, Tailwind v4
 
@@ -155,7 +166,7 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 4. **RAG grounding** -- clinical knowledge index (guideline/documentation-requirement/drug-interaction snippets) + longitudinal patient history index (prior encounter notes), both pgvector-backed with local embeddings; grounding citations retrievable per claim; citation panel in the claim graph view. ✅ done
 5. **LangGraph + zero-trust policy engine** -- state graph (ingest -> extract_claims -> build_graph -> ground_claims -> run_policy_engine) with a Postgres checkpointer; 5-part policy engine (support, contradiction, temporal ambiguity, missing context, clinical safety) grounded in Phase 4's retrieved evidence; clarification question generator; run trace endpoint + view; clarification queue with an answer flow that creates a new `clinician_judgment` claim. ✅ done
 6. **Terminology normalization** -- pgvector-backed RxNorm/SNOMED CT/LOINC embedding index (a small curated subset, not a full vocabulary download -- see deviations below), wired in as the 6th LangGraph node (`normalize_terminology`, appended after `run_policy_engine`); maps each surviving claim's concept to a code, skipping claims blocked by the support check. ✅ done
-7. **SOAP compilation + review workspace** -- LangGraph `interrupt()`-based review node, note editor with accept/edit/reject + attestations.
+7. **SOAP compilation + review workspace** -- claims grouped into subjective/objective/assessment/plan (`compile_soap_note_step`, appended to the LangGraph pipeline as `compile_soap_note`); contradicted claim pairs merged into one labeled conflict line rather than picked between; a genuine LangGraph `interrupt()` at `clinician_review` that pauses the graph and resumes via `Command(resume=...)`; SOAP Note tab with accept/edit/reject per line, each writing an `Attestation`; rejecting a single-claim line also marks the underlying claim `rejected` so it's excluded from any future recompile. ✅ done
 8. **Signing, versioning, FHIR export** -- note versioning, FHIR R4 resources, mock EHR endpoint, audit/lineage view.
 9. **Raw audio ingestion** -- `TranscriptionProvider` interface, AssemblyAI Universal 3 Pro + Medical Mode implementation.
 10. **Evaluation harness + polish** -- golden dataset, extraction/policy accuracy scoring, seeded demo encounters, this README's walkthrough section, SECURITY.md.
@@ -166,6 +177,7 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 - **Local embeddings (`fastembed` / `bge-small-en-v1.5`, 384-dim) instead of a hosted embeddings API.** Anthropic doesn't offer an embeddings endpoint and recommends Voyage AI for production use. This prototype uses a small local ONNX model instead so it doesn't need a second paid API key beyond `ANTHROPIC_API_KEY` -- everything else (claim extraction, edge generation) already depends on Claude, and requiring a second vendor's credits just to demo grounding felt like unnecessary friction for a portfolio build. Swapping in Voyage AI (or any other embeddings provider) later is a small, isolated change confined to `app/services/embedding_service.py`.
 - **Policy engine calls the Claude service module directly, not via a LangChain chain/runnable.** `langchain-core` is present only as `langgraph`'s own transitive dependency (message/state types); the full `langchain` package is unused. Same reasoning as the retrieval-layer deviation above -- one fewer abstraction layer between the policy engine and the exact structured-output contract it needs.
 - **Vocabulary index (Phase 6) is a small curated subset (~20 terms), not a real RxNorm/SNOMED CT/LOINC download.** These are large, licensed terminologies (RxNorm and SNOMED CT in particular require UMLS/SNOMED International licensing) unsuitable for bundling into a portfolio prototype. The seeded codes are well-known concept IDs that appear throughout public FHIR examples and clinical terminology tutorials, chosen to cover this build's demo scenarios (chest pain, penicillin allergy, vitals); verify against an authoritative source before any real use. The normalization mechanism itself (embedding search + code system routing by claim type) is the same approach a real deployment would use against the full terminologies.
+- **No Guardrails AI, no Langfuse.** The original brief's Phase 5 tech stack names both: Guardrails AI as an independent schema-validation layer ahead of the policy engine, and Langfuse for tracing every Claude call. Neither is wired in. In their place: every structured Claude call already goes through `client.messages.parse()` against a Pydantic schema (rejecting anything malformed before it reaches application code), and every model-generated cross-reference -- a segment index in claim extraction, a claim index in edge generation -- is independently re-validated against the actual set sent, both in the service module and again defensively at the API layer (see "never trust a raw citation" in `claude_service.py`'s docstrings). That covers the same failure mode Guardrails AI targets (a malformed or hallucinated structured output) without an extra dependency; it does not cover Langfuse's role (call-level tracing/observability across a session), which is a genuine gap for anyone extending this project -- adding it would mean wrapping the Anthropic client in `claude_service.py`, the single isolation point for all Claude calls.
 
 ## Known limitations (by design, for this prototype)
 
@@ -173,6 +185,8 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 - No live EHR integration -- FHIR export posts to a mock receiving endpoint.
 - No HIPAA-grade hosting, SOC 2, or FDA pathway -- see `SECURITY.md` for what a real deployment would still need.
 - LangGraph's Postgres checkpointer preserves state across the clinician-review pause, but is **not** full durable execution across process crashes. Acceptable for this prototype; a layer like the Temporal LangGraph plugin would close that gap in production.
+- **SOAP section assignment is a fixed claim-type -> section map**, not clinical judgment (e.g. `medication`/`allergy`/`plan_item` all route to Plan; `symptom`/`history`/`other` all route to Subjective). Real SOAP notes are more nuanced -- e.g. a medication *reconciliation* often belongs in Subjective/history rather than Plan. Documented in `app/pipeline/steps.py::_CLAIM_TYPE_TO_SECTION` as a defensible first-draft default, not a claim of clinical accuracy.
+- **Compiling a SOAP note is idempotent once, not continuously live.** Once a note exists for an encounter, `compile_soap_note_step` returns it unchanged rather than regenerating it -- so a claim added after compilation (e.g. from answering a clarification mid-review) will not automatically appear on the existing draft. This is a deliberate choice: a clinician's in-progress review should never be silently regenerated out from under them. Picking up a late-arriving claim currently requires a new note version, which Phase 8 (versioning/signing) is the natural place to add.
 
 ## Prior art
 

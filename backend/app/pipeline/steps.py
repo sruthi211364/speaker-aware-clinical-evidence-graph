@@ -12,8 +12,27 @@ encounter, matching the behavior the individual endpoints already had.
 
 from sqlalchemy.orm import Session
 
-from app.models import Claim, ClaimEdge, Encounter, GroundingCitation, PolicyVerdict, TranscriptSegment
-from app.models.enums import ClaimStatus, ClaimType, EdgeRelation, GroundingSourceType, SourceType, SpeakerRole
+from app.models import (
+    Claim,
+    ClaimEdge,
+    Encounter,
+    GroundingCitation,
+    PolicyVerdict,
+    SoapNote,
+    SoapNoteLine,
+    SoapNoteLineClaim,
+    TranscriptSegment,
+)
+from app.models.enums import (
+    ClaimStatus,
+    ClaimType,
+    EdgeRelation,
+    GroundingSourceType,
+    NoteStatus,
+    SoapSection,
+    SourceType,
+    SpeakerRole,
+)
 from app.services.claude_service import (
     ClaimForEdgeInput,
     TranscriptSegmentInput,
@@ -46,6 +65,35 @@ _SPEAKER_TO_SOURCE_TYPE = {
 }
 _EXTRACTABLE_ROLES = set(_SPEAKER_TO_SOURCE_TYPE)
 _GROUNDING_TOP_K = 2
+
+# Which SOAP section a claim type belongs in. A simplification of real SOAP
+# conventions (e.g. medications/allergies can also read as history) but a
+# defensible, documented default for compiling a first draft.
+_CLAIM_TYPE_TO_SECTION = {
+    ClaimType.symptom: SoapSection.subjective,
+    ClaimType.history: SoapSection.subjective,
+    ClaimType.other: SoapSection.subjective,
+    ClaimType.exam_finding: SoapSection.objective,
+    ClaimType.vital: SoapSection.objective,
+    ClaimType.assessment: SoapSection.assessment,
+    ClaimType.medication: SoapSection.plan,
+    ClaimType.allergy: SoapSection.plan,
+    ClaimType.plan_item: SoapSection.plan,
+}
+
+_SOURCE_LABEL = {
+    SourceType.patient_speech: "Patient",
+    SourceType.caregiver_report: "Caregiver",
+    SourceType.clinician_observation: "Clinician",
+    SourceType.ehr_data: "EHR",
+    SourceType.device_data: "Device",
+    SourceType.clinician_judgment: "Clinician judgment",
+}
+
+# Claims in these statuses never reach the note: proposed means it hasn't
+# been through the policy engine yet, unsupported/rejected mean it failed or
+# was explicitly turned down by a clinician.
+_EXCLUDED_FROM_NOTE = {ClaimStatus.proposed, ClaimStatus.unsupported, ClaimStatus.rejected}
 
 
 def extract_claims_step(db: Session, encounter: Encounter) -> list[Claim]:
@@ -244,3 +292,96 @@ def normalize_terminology_step(db: Session, encounter: Encounter) -> list[Claim]
     for c in normalized:
         db.refresh(c)
     return normalized
+
+
+def compile_soap_note_step(db: Session, encounter: Encounter) -> SoapNote:
+    """Compiles surviving claims into a SOAP note: one line per claim,
+    grouped into subjective/objective/assessment/plan, with every line
+    linked back to the claim(s) it was built from. Contradicted claims are
+    never silently resolved into a single statement -- each contradicting
+    pair becomes one conflict line showing both sides with their sources.
+
+    Idempotent per encounter: once a note exists, recompiling returns it
+    unchanged. A clinician's in-progress review is a live, editable draft
+    (see the /notes/{id}/lines/... accept|edit|reject endpoints) -- it is
+    never silently regenerated out from under them by a later pipeline run.
+    """
+    existing = (
+        db.query(SoapNote)
+        .filter_by(encounter_id=encounter.id)
+        .order_by(SoapNote.version.desc())
+        .first()
+    )
+    if existing:
+        return existing
+
+    claims = db.query(Claim).filter_by(encounter_id=encounter.id).order_by(Claim.created_at).all()
+    eligible = [c for c in claims if c.status not in _EXCLUDED_FROM_NOTE]
+    eligible_ids = {c.id for c in eligible}
+    claims_by_id = {c.id: c for c in eligible}
+
+    contradicts_edges = (
+        db.query(ClaimEdge)
+        .filter(
+            ClaimEdge.relation == EdgeRelation.contradicts,
+            ClaimEdge.source_claim_id.in_(eligible_ids),
+            ClaimEdge.target_claim_id.in_(eligible_ids),
+        )
+        .all()
+        if eligible_ids
+        else []
+    )
+
+    note = SoapNote(encounter_id=encounter.id, version=1, status=NoteStatus.draft)
+    db.add(note)
+    db.flush()
+
+    positions = {section: 0 for section in SoapSection}
+
+    def add_line(section: SoapSection, text: str, is_conflict: bool, claim_ids: list) -> None:
+        line = SoapNoteLine(
+            note_id=note.id,
+            section=section,
+            position=positions[section],
+            text=text,
+            is_conflict=is_conflict,
+        )
+        positions[section] += 1
+        db.add(line)
+        db.flush()
+        for claim_id in claim_ids:
+            db.add(SoapNoteLineClaim(line_id=line.id, claim_id=claim_id))
+
+    claims_in_conflicts: set = set()
+    for edge in contradicts_edges:
+        source = claims_by_id.get(edge.source_claim_id)
+        target = claims_by_id.get(edge.target_claim_id)
+        if source is None or target is None:
+            continue
+        if source.id in claims_in_conflicts or target.id in claims_in_conflicts:
+            continue  # already covered by another conflict edge
+        text = (
+            f"{_SOURCE_LABEL[source.source_type]}: {source.text} "
+            f"-- vs -- "
+            f"{_SOURCE_LABEL[target.source_type]}: {target.text}"
+        )
+        section = _CLAIM_TYPE_TO_SECTION.get(source.claim_type, SoapSection.subjective)
+        add_line(section, text, True, [source.id, target.id])
+        claims_in_conflicts.add(source.id)
+        claims_in_conflicts.add(target.id)
+
+    for claim in eligible:
+        if claim.id in claims_in_conflicts:
+            continue
+        section = _CLAIM_TYPE_TO_SECTION.get(claim.claim_type, SoapSection.subjective)
+        needs_attribution = claim.source_type in (
+            SourceType.patient_speech,
+            SourceType.caregiver_report,
+            SourceType.clinician_judgment,
+        )
+        text = f"{_SOURCE_LABEL[claim.source_type]}: {claim.text}" if needs_attribution else claim.text
+        add_line(section, text, False, [claim.id])
+
+    db.commit()
+    db.refresh(note)
+    return note
