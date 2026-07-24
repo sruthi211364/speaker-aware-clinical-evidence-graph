@@ -17,7 +17,7 @@ stored as a versioned attestation, so there is a full lineage from raw
 encounter to signed record.
 
 This is a portfolio/prototype build, developed iteratively phase by phase.
-Current status: **Phase 4 of 10 complete** (see [Build phases](#build-phases)).
+Current status: **Phase 5 of 10 complete** (see [Build phases](#build-phases)).
 
 ## Why this exists
 
@@ -48,12 +48,26 @@ Ingestion → Claim extraction → Graph construction → RAG grounding
    → SOAP compilation → Clinician review (human-in-the-loop) → Sign → FHIR export
 ```
 
-From Phase 5 onward this pipeline is a **LangGraph** state graph, checkpointed
-to Postgres, with a genuine `interrupt()` at the clinician review node (the
-graph pauses and persists state; the API resumes it exactly where it left off
-once the clinician acts -- no polling). See [`docs/langgraph-notes.md`] (added
-in Phase 5) for the node list and known limitations of checkpoint-based
-durability versus full durable execution.
+From Phase 5 onward this pipeline is a **LangGraph** state graph
+(`backend/app/pipeline/graph.py`): `ingest -> extract_claims -> build_graph
+-> ground_claims -> run_policy_engine`, checkpointed to Postgres per encounter
+(`thread_id = encounter_id`) via `PostgresSaver`. Every node transition is
+persisted, so a run can be inspected step by step after the fact --
+`GET /encounters/{id}/pipeline/trace` and the "Audit & Lineage" tab expose
+this. Each node is a thin wrapper around the same step functions
+(`backend/app/pipeline/steps.py`) that the individual per-stage REST
+endpoints call directly, so there is exactly one implementation of each
+stage regardless of which entry point triggers it. Phase 7 adds a genuine
+`interrupt()` at the clinician review node (the graph pauses and persists
+state; the API resumes it exactly where it left off once the clinician acts
+-- no polling).
+
+*Implementation note:* the trace endpoint identifies which node produced
+each checkpoint by diffing state keys against a fixed key→node map, rather
+than trusting LangGraph's checkpoint `tasks`/metadata fields -- those proved
+inconsistent about which node they attributed a given checkpoint to across
+runs in the installed LangGraph version (1.2.9). Diffing state is fully
+deterministic since each node writes a distinct, non-overlapping key.
 
 ### Domain model
 
@@ -137,7 +151,7 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 2. **Ingestion + claim extraction** -- diarized transcript ingestion, Claude-backed structured claim extraction (`client.messages.parse()` + `output_config.format`), mock EHR context ingestion, transcript + claim list views. ✅ done
 3. **Graph construction** -- Claude-backed claim edge generation (supports/contradicts/refines/duplicates/depends_on_temporal_context), claim graph view with contradictions surfaced side by side rather than merged. ✅ done
 4. **RAG grounding** -- clinical knowledge index (guideline/documentation-requirement/drug-interaction snippets) + longitudinal patient history index (prior encounter notes), both pgvector-backed with local embeddings; grounding citations retrievable per claim; citation panel in the claim graph view. ✅ done
-5. **LangGraph + zero-trust policy engine** -- state graph with Postgres checkpointer, 5-part policy engine, clarification generator, run trace view.
+5. **LangGraph + zero-trust policy engine** -- state graph (ingest -> extract_claims -> build_graph -> ground_claims -> run_policy_engine) with a Postgres checkpointer; 5-part policy engine (support, contradiction, temporal ambiguity, missing context, clinical safety) grounded in Phase 4's retrieved evidence; clarification question generator; run trace endpoint + view; clarification queue with an answer flow that creates a new `clinician_judgment` claim. ✅ done
 6. **Terminology normalization** -- RxNorm/SNOMED CT/LOINC embedding index.
 7. **SOAP compilation + review workspace** -- LangGraph `interrupt()`-based review node, note editor with accept/edit/reject + attestations.
 8. **Signing, versioning, FHIR export** -- note versioning, FHIR R4 resources, mock EHR endpoint, audit/lineage view.
@@ -148,6 +162,7 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 
 - **RAG retrieval layer: direct pgvector queries via SQLAlchemy, not LangChain's `PGVector` vectorstore.** The brief specifies LangChain for the retrieval layer. This build queries `clinical_knowledge_chunks` / `patient_history_chunks` directly with pgvector's `cosine_distance()` operator instead. Reasoning: LangChain's `PGVector` abstraction manages its own storage tables, which would sit awkwardly alongside this project's existing SQLAlchemy domain models (`GroundingCitation` needs to reference retrieved chunks by our own IDs regardless of how the vectorstore is implemented internally), and the retrieval logic here is simple enough (two tables, cosine similarity, optional patient-scoping) that the direct approach is fewer moving parts for a fast-moving prototype. If the retrieval logic grows more complex (hybrid search, re-ranking, multiple retrievers), LangChain's abstractions would earn their keep and this is a reasonable place to introduce them.
 - **Local embeddings (`fastembed` / `bge-small-en-v1.5`, 384-dim) instead of a hosted embeddings API.** Anthropic doesn't offer an embeddings endpoint and recommends Voyage AI for production use. This prototype uses a small local ONNX model instead so it doesn't need a second paid API key beyond `ANTHROPIC_API_KEY` -- everything else (claim extraction, edge generation) already depends on Claude, and requiring a second vendor's credits just to demo grounding felt like unnecessary friction for a portfolio build. Swapping in Voyage AI (or any other embeddings provider) later is a small, isolated change confined to `app/services/embedding_service.py`.
+- **Policy engine calls the Claude service module directly, not via a LangChain chain/runnable.** `langchain-core` is present only as `langgraph`'s own transitive dependency (message/state types); the full `langchain` package is unused. Same reasoning as the retrieval-layer deviation above -- one fewer abstraction layer between the policy engine and the exact structured-output contract it needs.
 
 ## Known limitations (by design, for this prototype)
 

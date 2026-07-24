@@ -43,6 +43,7 @@ class ClaimStatus(str, enum.Enum):
     ambiguous = "ambiguous"
     missing_context = "missing_context"
     unsupported = "unsupported"
+    unsafe = "unsafe"
     accepted = "accepted"
     edited = "edited"
     rejected = "rejected"

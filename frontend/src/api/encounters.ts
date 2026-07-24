@@ -1,4 +1,14 @@
-import type { Claim, ClaimGraph, Encounter, GroundingCitation, TranscriptSegment } from '../types/domain'
+import type {
+  Claim,
+  ClaimGraph,
+  ClarificationQuestion,
+  Encounter,
+  GroundingCitation,
+  PipelineRunResult,
+  PipelineTraceEntry,
+  PolicyVerdict,
+  TranscriptSegment,
+} from '../types/domain'
 import { apiClient } from './client'
 
 export async function listEncounters(): Promise<Encounter[]> {
@@ -51,5 +61,41 @@ export async function getClaimCitations(
   claimId: string,
 ): Promise<GroundingCitation[]> {
   const res = await apiClient.get(`/encounters/${encounterId}/claims/${claimId}/citations`)
+  return res.data
+}
+
+export async function runPolicyCheck(encounterId: string): Promise<PolicyVerdict[]> {
+  const res = await apiClient.post(`/encounters/${encounterId}/claims/policy-check`)
+  return res.data
+}
+
+export async function listPolicyVerdicts(encounterId: string): Promise<PolicyVerdict[]> {
+  const res = await apiClient.get(`/encounters/${encounterId}/policy-verdicts`)
+  return res.data
+}
+
+export async function listClarifications(encounterId: string): Promise<ClarificationQuestion[]> {
+  const res = await apiClient.get(`/encounters/${encounterId}/clarifications`)
+  return res.data
+}
+
+export async function answerClarification(
+  encounterId: string,
+  clarificationId: string,
+  answerText: string,
+): Promise<ClarificationQuestion> {
+  const res = await apiClient.post(`/encounters/${encounterId}/clarifications/${clarificationId}/answer`, {
+    answer_text: answerText,
+  })
+  return res.data
+}
+
+export async function runPipeline(encounterId: string): Promise<PipelineRunResult> {
+  const res = await apiClient.post(`/encounters/${encounterId}/pipeline/run`)
+  return res.data
+}
+
+export async function getPipelineTrace(encounterId: string): Promise<PipelineTraceEntry[]> {
+  const res = await apiClient.get(`/encounters/${encounterId}/pipeline/trace`)
   return res.data
 }

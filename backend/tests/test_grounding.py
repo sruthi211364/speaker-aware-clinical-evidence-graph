@@ -34,8 +34,8 @@ def test_ground_claims_creates_citations_from_both_indexes(client):
     encounter = _seed_encounter_with_claim(client)
 
     with (
-        patch("app.api.grounding.retrieve_clinical_knowledge", return_value=[(_fake_knowledge_chunk(), 0.8)]),
-        patch("app.api.grounding.retrieve_patient_history", return_value=[(_fake_history_chunk(), 0.7)]),
+        patch("app.pipeline.steps.retrieve_clinical_knowledge", return_value=[(_fake_knowledge_chunk(), 0.8)]),
+        patch("app.pipeline.steps.retrieve_patient_history", return_value=[(_fake_history_chunk(), 0.7)]),
     ):
         resp = client.post(f"/encounters/{encounter['id']}/claims/ground")
 
@@ -50,8 +50,8 @@ def test_ground_claims_is_idempotent(client):
     encounter = _seed_encounter_with_claim(client)
 
     with (
-        patch("app.api.grounding.retrieve_clinical_knowledge", return_value=[(_fake_knowledge_chunk(), 0.8)]) as mock_ck,
-        patch("app.api.grounding.retrieve_patient_history", return_value=[(_fake_history_chunk(), 0.7)]) as mock_ph,
+        patch("app.pipeline.steps.retrieve_clinical_knowledge", return_value=[(_fake_knowledge_chunk(), 0.8)]) as mock_ck,
+        patch("app.pipeline.steps.retrieve_patient_history", return_value=[(_fake_history_chunk(), 0.7)]) as mock_ph,
     ):
         client.post(f"/encounters/{encounter['id']}/claims/ground")
         resp2 = client.post(f"/encounters/{encounter['id']}/claims/ground")
@@ -66,8 +66,8 @@ def test_get_claim_citations_returns_stored_citations(client):
     encounter = _seed_encounter_with_claim(client)
 
     with (
-        patch("app.api.grounding.retrieve_clinical_knowledge", return_value=[(_fake_knowledge_chunk(), 0.8)]),
-        patch("app.api.grounding.retrieve_patient_history", return_value=[]),
+        patch("app.pipeline.steps.retrieve_clinical_knowledge", return_value=[(_fake_knowledge_chunk(), 0.8)]),
+        patch("app.pipeline.steps.retrieve_patient_history", return_value=[]),
     ):
         citations = client.post(f"/encounters/{encounter['id']}/claims/ground").json()
 

@@ -35,7 +35,7 @@ def test_build_claim_graph_maps_edges_to_claim_ids(client):
         ]
     )
 
-    with patch("app.api.graph.generate_claim_edges", return_value=fake_result):
+    with patch("app.pipeline.steps.generate_claim_edges", return_value=fake_result):
         resp = client.post(f"/encounters/{encounter['id']}/claim-graph/build")
 
     assert resp.status_code == 201
@@ -45,7 +45,7 @@ def test_build_claim_graph_maps_edges_to_claim_ids(client):
     assert {edges[0]["source_claim_id"], edges[0]["target_claim_id"]} == {c["id"] for c in claims}
 
     # Idempotent: rebuilding does not duplicate or re-call Claude.
-    with patch("app.api.graph.generate_claim_edges", return_value=fake_result) as mock_gen:
+    with patch("app.pipeline.steps.generate_claim_edges", return_value=fake_result) as mock_gen:
         resp2 = client.post(f"/encounters/{encounter['id']}/claim-graph/build")
     assert resp2.status_code == 201
     assert len(resp2.json()) == 1
@@ -66,7 +66,7 @@ def test_get_claim_graph_returns_claims_and_edges(client):
             )
         ]
     )
-    with patch("app.api.graph.generate_claim_edges", return_value=fake_result):
+    with patch("app.pipeline.steps.generate_claim_edges", return_value=fake_result):
         client.post(f"/encounters/{encounter['id']}/claim-graph/build")
 
     resp = client.get(f"/encounters/{encounter['id']}/claim-graph")
@@ -90,7 +90,7 @@ def test_build_claim_graph_drops_edges_citing_unknown_index(client):
             )
         ]
     )
-    with patch("app.api.graph.generate_claim_edges", return_value=fake_result):
+    with patch("app.pipeline.steps.generate_claim_edges", return_value=fake_result):
         resp = client.post(f"/encounters/{encounter['id']}/claim-graph/build")
 
     assert resp.status_code == 201
@@ -104,7 +104,7 @@ def test_build_claim_graph_with_fewer_than_two_claims_skips_claude(client):
         json={"items": [{"claim_type": "allergy", "text": "penicillin allergy"}]},
     )
 
-    with patch("app.api.graph.generate_claim_edges") as mock_gen:
+    with patch("app.pipeline.steps.generate_claim_edges") as mock_gen:
         resp = client.post(f"/encounters/{encounter['id']}/claim-graph/build")
 
     assert resp.status_code == 201

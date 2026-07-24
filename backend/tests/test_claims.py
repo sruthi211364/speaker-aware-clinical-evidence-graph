@@ -48,7 +48,7 @@ def test_extract_claims_maps_model_output_to_claim_rows(client):
         ]
     )
 
-    with patch("app.api.claims.extract_claims_from_transcript", return_value=fake_result):
+    with patch("app.pipeline.steps.extract_claims_from_transcript", return_value=fake_result):
         resp = client.post(f"/encounters/{encounter['id']}/claims/extract")
 
     assert resp.status_code == 201
@@ -60,7 +60,7 @@ def test_extract_claims_maps_model_output_to_claim_rows(client):
     assert claims[0]["status"] == "proposed"
 
     # Re-running extraction is idempotent -- no duplicate claims.
-    with patch("app.api.claims.extract_claims_from_transcript", return_value=fake_result) as mock_extract:
+    with patch("app.pipeline.steps.extract_claims_from_transcript", return_value=fake_result) as mock_extract:
         resp2 = client.post(f"/encounters/{encounter['id']}/claims/extract")
     assert resp2.status_code == 201
     assert len(resp2.json()) == 1
@@ -86,7 +86,7 @@ def test_extract_claims_drops_claims_citing_unknown_segment_index(client):
         ]
     )
 
-    with patch("app.api.claims.extract_claims_from_transcript", return_value=fake_result):
+    with patch("app.pipeline.steps.extract_claims_from_transcript", return_value=fake_result):
         resp = client.post(f"/encounters/{encounter['id']}/claims/extract")
 
     assert resp.status_code == 201

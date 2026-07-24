@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { buildClaimGraph, extractClaims, getClaimGraph, groundClaims, listTranscript } from '../api/encounters'
+import {
+  buildClaimGraph,
+  extractClaims,
+  getClaimGraph,
+  groundClaims,
+  listTranscript,
+  runPolicyCheck,
+} from '../api/encounters'
 import ClaimGraphView from '../components/ClaimGraphView'
+import ClarificationQueue from '../components/ClarificationQueue'
+import PipelineTraceView from '../components/PipelineTraceView'
 import TranscriptView from '../components/TranscriptView'
 
 const TABS = ['Transcript', 'Claim Graph', 'SOAP Note', 'Clarifications', 'Audit & Lineage'] as const
@@ -50,6 +59,15 @@ export default function EncounterDetailPage() {
     },
   })
 
+  const policyCheckMutation = useMutation({
+    mutationFn: () => runPolicyCheck(encounterId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claim-graph', encounterId] })
+      queryClient.invalidateQueries({ queryKey: ['policy-verdicts', encounterId] })
+      queryClient.invalidateQueries({ queryKey: ['clarifications', encounterId] })
+    },
+  })
+
   return (
     <div className="mx-auto max-w-5xl p-8">
       <Link to="/" className="text-sm text-indigo-600 hover:underline">
@@ -91,7 +109,7 @@ export default function EncounterDetailPage() {
                 Claims grouped with their supports/contradicts/refines relationships. Contradicted claims
                 stay visible side by side instead of being blended.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => extractMutation.mutate()}
@@ -116,6 +134,14 @@ export default function EncounterDetailPage() {
                 >
                   {groundMutation.isPending ? 'Grounding...' : 'Ground claims'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => policyCheckMutation.mutate()}
+                  disabled={policyCheckMutation.isPending}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {policyCheckMutation.isPending ? 'Checking...' : 'Run policy check'}
+                </button>
               </div>
             </div>
             {extractMutation.isError && (
@@ -129,6 +155,11 @@ export default function EncounterDetailPage() {
             {groundMutation.isError && (
               <p className="mb-3 text-sm text-red-600">{errorDetail(groundMutation.error, 'Grounding failed.')}</p>
             )}
+            {policyCheckMutation.isError && (
+              <p className="mb-3 text-sm text-red-600">
+                {errorDetail(policyCheckMutation.error, 'Policy check failed.')}
+              </p>
+            )}
             {graphQuery.isLoading && <p className="text-sm text-slate-500">Loading claim graph...</p>}
             {graphQuery.data && (
               <ClaimGraphView
@@ -140,7 +171,11 @@ export default function EncounterDetailPage() {
           </div>
         )}
 
-        {activeTab !== 'Transcript' && activeTab !== 'Claim Graph' && (
+        {activeTab === 'Clarifications' && <ClarificationQueue encounterId={encounterId!} />}
+
+        {activeTab === 'Audit & Lineage' && <PipelineTraceView encounterId={encounterId!} />}
+
+        {activeTab === 'SOAP Note' && (
           <div className="rounded-md border border-dashed border-slate-300 p-8 text-center text-slate-500">
             {activeTab} arrives in a later phase.
           </div>

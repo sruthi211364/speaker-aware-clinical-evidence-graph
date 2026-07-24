@@ -32,6 +32,7 @@ export type ClaimStatus =
   | 'ambiguous'
   | 'missing_context'
   | 'unsupported'
+  | 'unsafe'
   | 'accepted'
   | 'edited'
   | 'rejected'
@@ -107,4 +108,50 @@ export interface GroundingCitation {
   excerpt: string | null
   relevance_score: number
   created_at: string
+}
+
+export type PolicyCheckType =
+  | 'support'
+  | 'contradiction'
+  | 'temporal_ambiguity'
+  | 'missing_context'
+  | 'clinical_safety'
+
+export interface PolicyVerdict {
+  id: string
+  claim_id: string
+  check_type: PolicyCheckType
+  passed: boolean
+  rationale: string | null
+  created_at: string
+}
+
+export interface ClarificationQuestion {
+  id: string
+  encounter_id: string
+  triggering_claim_id: string
+  question_text: string
+  grounding_citation_id: string | null
+  resolved: boolean
+  resolved_by_claim_id: string | null
+  created_at: string
+  resolved_at: string | null
+}
+
+export interface PipelineRunResult {
+  encounter_id: string
+  transcript_segment_count: number
+  claim_count: number
+  edge_count: number
+  citation_count: number
+  verdict_count: number
+  open_clarification_count: number
+}
+
+export interface PipelineTraceEntry {
+  node: string | null
+  step: number | null
+  next: string[]
+  result: Record<string, unknown> | null
+  values: Record<string, unknown>
 }

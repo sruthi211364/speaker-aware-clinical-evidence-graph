@@ -96,6 +96,52 @@ class EdgeExtractionResult(BaseModel):
     edges: list[ExtractedEdge]
 
 
+class GroundedEvidenceInput(BaseModel):
+    """One retrieved grounding citation as fed to the policy-check prompt --
+    the model reasons only over evidence we actually retrieved, never its
+    unaided judgment."""
+
+    source_type: str
+    source_identifier: str
+    excerpt: str
+
+
+class PolicyCheckResult(BaseModel):
+    """The four Claude-assisted policy engine verdicts for one claim (the
+    fifth check, support, is a hard-coded rule with no model call -- see
+    app/services/policy_engine.py). Each verdict is grounded in the specific
+    citations passed in the prompt, never the model's unaided judgment."""
+
+    contradicts_history: bool = Field(
+        description="True if this claim conflicts with a retrieved prior-encounter note (e.g. a symptom described differently at a past visit)."
+    )
+    contradicts_history_rationale: str | None = Field(
+        default=None, description="Required if contradicts_history is true; otherwise omit."
+    )
+    temporally_ambiguous: bool = Field(
+        description="True if the claim depends on a time reference that is unclear or missing (e.g. 'a while ago')."
+    )
+    temporal_ambiguity_rationale: str | None = Field(
+        default=None, description="Required if temporally_ambiguous is true; otherwise omit."
+    )
+    missing_context: bool = Field(
+        description="True if, per the retrieved documentation-standard citation, this claim type normally requires additional information that is absent."
+    )
+    missing_context_rationale: str | None = Field(
+        default=None, description="Required if missing_context is true; otherwise omit."
+    )
+    clarification_question: str | None = Field(
+        default=None,
+        description="A plain-language question for the clinician, grounded in the documentation-standard citation. Required if missing_context is true; otherwise omit.",
+    )
+    clinical_safety_flag: bool = Field(
+        description="True if, per the retrieved drug-interaction/allergy citation, this claim describes a medication conflicting with a documented allergy or existing prescription."
+    )
+    clinical_safety_rationale: str | None = Field(
+        default=None, description="Required if clinical_safety_flag is true; otherwise omit."
+    )
+
+
 class ClaudeNotConfiguredError(RuntimeError):
     """Raised when ANTHROPIC_API_KEY is unset. Callers should surface this as
     a clean 503, not let the SDK's low-level header-building error bubble up
@@ -147,6 +193,46 @@ Only propose a pair when the relationship is clinically meaningful -- do not \
 force a relationship between unrelated claims. Reference claims only by the \
 index numbers given to you; never invent an index. Each pair should appear at \
 most once (do not also emit the reverse direction as a separate edge)."""
+
+
+_POLICY_CHECK_SYSTEM_PROMPT = """You are a clinical policy engine performing four checks on a single \
+clinical claim, using ONLY the retrieved evidence provided to you. Never use \
+outside knowledge or assumptions -- every verdict must be traceable to a \
+specific piece of the evidence given, or must be false/absent.
+
+The evidence is labeled by type: "prior_encounter" (notes from the patient's \
+past visits), "guideline" (documentation-standard snippets describing what \
+this claim type should normally include), and "drug_data" (drug interaction \
+and allergy cross-reactivity facts). Some categories may have no evidence at \
+all for this claim -- if so, that check should come back false for lack of \
+grounding, not from inference.
+
+Perform exactly these four checks:
+
+1. contradicts_history: Does the claim conflict with a retrieved \
+prior_encounter note -- e.g. a symptom described with a different onset, \
+severity, or character than at a past visit? Only flag a genuine conflict, \
+not a claim that simply isn't mentioned in the prior note.
+
+2. temporally_ambiguous: Does the claim depend on a time reference that is \
+vague or missing (e.g. "a while ago", "recently") such that a reader cannot \
+tell when the described event happened?
+
+3. missing_context: Per the retrieved guideline citation (if any) describing \
+what this claim type should document, is required information absent from \
+the claim? If true, you MUST write a clarification_question: a short, plain \
+-language question a clinician could ask the patient to fill that specific \
+gap, grounded in what the guideline says is required. If there is no \
+guideline evidence for this claim type, this check must be false.
+
+4. clinical_safety_flag: Per the retrieved drug_data citation (if any), does \
+the claim describe a medication that conflicts with a documented allergy or \
+cross-reacts with it? If there is no drug_data evidence, this check must be \
+false.
+
+For any check that is true, its *_rationale field is required and must cite \
+what in the evidence justifies it. For any check that is false, leave its \
+rationale and (for missing_context) clarification_question empty."""
 
 
 def _require_configured_client(settings) -> anthropic.Anthropic:
@@ -223,3 +309,32 @@ def generate_claim_edges(claims: list[ClaimForEdgeInput]) -> EdgeExtractionResul
         and e.source_claim_index != e.target_claim_index
     ]
     return result
+
+
+def run_policy_checks(claim_text: str, evidence: list[GroundedEvidenceInput]) -> PolicyCheckResult:
+    """Runs the four Claude-assisted policy checks (contradiction-vs-history,
+    temporal ambiguity, missing context, clinical safety) for one claim,
+    grounded strictly in the retrieved evidence passed in. The fifth check
+    (support) is a hard-coded rule -- see app/services/policy_engine.py."""
+
+    settings = get_settings()
+    client = _require_configured_client(settings)
+
+    if evidence:
+        evidence_text = "\n".join(
+            f"- [{e.source_type}] {e.source_identifier}: {e.excerpt}" for e in evidence
+        )
+    else:
+        evidence_text = "(no grounding evidence was retrieved for this claim)"
+
+    prompt = f"Claim: {claim_text}\n\nRetrieved evidence:\n{evidence_text}"
+
+    response = client.messages.parse(
+        model=settings.claude_model,
+        max_tokens=2048,
+        thinking={"type": "disabled"},
+        system=_POLICY_CHECK_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}],
+        output_format=PolicyCheckResult,
+    )
+    return response.parsed_output

@@ -22,12 +22,13 @@ anthropic==0.119.0
 # LangChain-based retrieval layer.
 fastembed==0.8.0
 
-# --- Orchestration (added + version-pinned when Phase 5 lands) ---
-langgraph
-langgraph-checkpoint-postgres
-langchain
-langchain-anthropic
-langchain-community
+# --- Orchestration (installed + verified in Phase 5) ---
+# langchain-core comes along transitively as langgraph's internal dependency
+# (message/state types) -- the full langchain package itself is unused here;
+# Phase 4's RAG layer and Phase 5's policy engine both call the Claude
+# service module directly (see README deviations).
+langgraph==1.2.9
+langgraph-checkpoint-postgres==3.1.0
 
 # --- Schema validation / observability (added + version-pinned when Phase 5 lands) ---
 guardrails-ai
