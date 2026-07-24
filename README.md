@@ -17,7 +17,7 @@ stored as a versioned attestation, so there is a full lineage from raw
 encounter to signed record.
 
 This is a portfolio/prototype build, developed iteratively phase by phase.
-Current status: **Phase 5 of 10 complete** (see [Build phases](#build-phases)).
+Current status: **Phase 6 of 10 complete** (see [Build phases](#build-phases)).
 
 ## Why this exists
 
@@ -111,16 +111,18 @@ docker compose up --build
 - Postgres: localhost:5433 (user/pass/db: `ceg`/`ceg`/`ceg`)
 
 Seed demo data -- one encounter with a deliberate patient/caregiver timeline
-contradiction (exercises Phase 3's contradiction detection) plus the RAG
+contradiction (exercises Phase 3's contradiction detection), the RAG
 knowledge base (guideline snippets, drug interaction facts, and prior
-encounter notes for the same demo patient, used for Phase 4 grounding):
+encounter notes for the same demo patient, used for Phase 4 grounding), and
+the RxNorm/SNOMED/LOINC vocabulary index (Phase 6 terminology normalization):
 
 ```bash
 docker compose exec api python -m app.seed
 ```
 
 The first run downloads the local embedding model (~30MB, cached after) to
-embed the knowledge base -- no API key required for this step.
+embed the knowledge base and vocabulary index -- no API key required for
+this step.
 
 ### Local (non-Docker) development
 
@@ -152,7 +154,7 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 3. **Graph construction** -- Claude-backed claim edge generation (supports/contradicts/refines/duplicates/depends_on_temporal_context), claim graph view with contradictions surfaced side by side rather than merged. ✅ done
 4. **RAG grounding** -- clinical knowledge index (guideline/documentation-requirement/drug-interaction snippets) + longitudinal patient history index (prior encounter notes), both pgvector-backed with local embeddings; grounding citations retrievable per claim; citation panel in the claim graph view. ✅ done
 5. **LangGraph + zero-trust policy engine** -- state graph (ingest -> extract_claims -> build_graph -> ground_claims -> run_policy_engine) with a Postgres checkpointer; 5-part policy engine (support, contradiction, temporal ambiguity, missing context, clinical safety) grounded in Phase 4's retrieved evidence; clarification question generator; run trace endpoint + view; clarification queue with an answer flow that creates a new `clinician_judgment` claim. ✅ done
-6. **Terminology normalization** -- RxNorm/SNOMED CT/LOINC embedding index.
+6. **Terminology normalization** -- pgvector-backed RxNorm/SNOMED CT/LOINC embedding index (a small curated subset, not a full vocabulary download -- see deviations below), wired in as the 6th LangGraph node (`normalize_terminology`, appended after `run_policy_engine`); maps each surviving claim's concept to a code, skipping claims blocked by the support check. ✅ done
 7. **SOAP compilation + review workspace** -- LangGraph `interrupt()`-based review node, note editor with accept/edit/reject + attestations.
 8. **Signing, versioning, FHIR export** -- note versioning, FHIR R4 resources, mock EHR endpoint, audit/lineage view.
 9. **Raw audio ingestion** -- `TranscriptionProvider` interface, AssemblyAI Universal 3 Pro + Medical Mode implementation.
@@ -163,6 +165,7 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 - **RAG retrieval layer: direct pgvector queries via SQLAlchemy, not LangChain's `PGVector` vectorstore.** The brief specifies LangChain for the retrieval layer. This build queries `clinical_knowledge_chunks` / `patient_history_chunks` directly with pgvector's `cosine_distance()` operator instead. Reasoning: LangChain's `PGVector` abstraction manages its own storage tables, which would sit awkwardly alongside this project's existing SQLAlchemy domain models (`GroundingCitation` needs to reference retrieved chunks by our own IDs regardless of how the vectorstore is implemented internally), and the retrieval logic here is simple enough (two tables, cosine similarity, optional patient-scoping) that the direct approach is fewer moving parts for a fast-moving prototype. If the retrieval logic grows more complex (hybrid search, re-ranking, multiple retrievers), LangChain's abstractions would earn their keep and this is a reasonable place to introduce them.
 - **Local embeddings (`fastembed` / `bge-small-en-v1.5`, 384-dim) instead of a hosted embeddings API.** Anthropic doesn't offer an embeddings endpoint and recommends Voyage AI for production use. This prototype uses a small local ONNX model instead so it doesn't need a second paid API key beyond `ANTHROPIC_API_KEY` -- everything else (claim extraction, edge generation) already depends on Claude, and requiring a second vendor's credits just to demo grounding felt like unnecessary friction for a portfolio build. Swapping in Voyage AI (or any other embeddings provider) later is a small, isolated change confined to `app/services/embedding_service.py`.
 - **Policy engine calls the Claude service module directly, not via a LangChain chain/runnable.** `langchain-core` is present only as `langgraph`'s own transitive dependency (message/state types); the full `langchain` package is unused. Same reasoning as the retrieval-layer deviation above -- one fewer abstraction layer between the policy engine and the exact structured-output contract it needs.
+- **Vocabulary index (Phase 6) is a small curated subset (~20 terms), not a real RxNorm/SNOMED CT/LOINC download.** These are large, licensed terminologies (RxNorm and SNOMED CT in particular require UMLS/SNOMED International licensing) unsuitable for bundling into a portfolio prototype. The seeded codes are well-known concept IDs that appear throughout public FHIR examples and clinical terminology tutorials, chosen to cover this build's demo scenarios (chest pain, penicillin allergy, vitals); verify against an authoritative source before any real use. The normalization mechanism itself (embedding search + code system routing by claim type) is the same approach a real deployment would use against the full terminologies.
 
 ## Known limitations (by design, for this prototype)
 

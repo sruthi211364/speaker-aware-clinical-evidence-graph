@@ -19,6 +19,7 @@ def test_run_pipeline_returns_result_summary(client):
         "citation_count": 4,
         "verdict_count": 10,
         "open_clarification_count": 1,
+        "normalized_claim_count": 2,
     }
     with patch("app.api.pipeline.run_pipeline", return_value=fake_result) as mock_run:
         resp = client.post(f"/encounters/{encounter['id']}/pipeline/run")

@@ -1,9 +1,10 @@
 """Pipeline step functions, one per pipeline stage (extract claims -> build
-graph -> ground claims -> run policy engine). Shared between the individual
-per-stage REST endpoints (app/api/claims.py, graph.py, grounding.py -- kept
-for direct/manual triggering and inspection) and the LangGraph-orchestrated
-full-pipeline run (app/pipeline/graph.py, Phase 5). Both callers share this
-one implementation so there is exactly one place each stage's logic lives.
+graph -> ground claims -> run policy engine -> normalize terminology).
+Shared between the individual per-stage REST endpoints (app/api/claims.py,
+graph.py, grounding.py, policy.py -- kept for direct/manual triggering and
+inspection) and the LangGraph-orchestrated full-pipeline run
+(app/pipeline/graph.py, Phase 5). Both callers share this one implementation
+so there is exactly one place each stage's logic lives.
 
 Each function takes a DB session and an Encounter and is idempotent per
 encounter, matching the behavior the individual endpoints already had.
@@ -20,7 +21,23 @@ from app.services.claude_service import (
     generate_claim_edges,
 )
 from app.services.policy_engine import run_policy_engine_for_claim
-from app.services.retrieval_service import retrieve_clinical_knowledge, retrieve_patient_history
+from app.services.retrieval_service import (
+    retrieve_clinical_knowledge,
+    retrieve_patient_history,
+    retrieve_vocabulary_term,
+)
+
+# Which coded vocabulary a claim type normalizes against. plan_item/other have
+# no single natural vocabulary and are left uncoded.
+_CLAIM_TYPE_TO_CODE_SYSTEM = {
+    ClaimType.medication: "RxNorm",
+    ClaimType.allergy: "RxNorm",
+    ClaimType.vital: "LOINC",
+    ClaimType.symptom: "SNOMED",
+    ClaimType.history: "SNOMED",
+    ClaimType.exam_finding: "SNOMED",
+    ClaimType.assessment: "SNOMED",
+}
 
 _SPEAKER_TO_SOURCE_TYPE = {
     SpeakerRole.patient: SourceType.patient_speech,
@@ -190,3 +207,40 @@ def run_policy_engine_step(db: Session, encounter: Encounter) -> list[PolicyVerd
     for v in all_verdicts:
         db.refresh(v)
     return all_verdicts
+
+
+def normalize_terminology_step(db: Session, encounter: Encounter) -> list[Claim]:
+    """Maps each surviving claim's clinical concept to a RxNorm/SNOMED/LOINC
+    code via embedding search over the vocabulary index. Unsupported claims
+    are skipped -- they never reach a note, so coding them is wasted work.
+    Idempotent per claim (not per encounter): only claims without a code yet
+    are processed, so re-running after a clarification answer adds a new
+    claim only normalizes that new claim."""
+    claims = (
+        db.query(Claim)
+        .filter(
+            Claim.encounter_id == encounter.id,
+            Claim.status != ClaimStatus.unsupported,
+            Claim.normalized_code.is_(None),
+        )
+        .all()
+    )
+
+    normalized: list[Claim] = []
+    for claim in claims:
+        code_system = _CLAIM_TYPE_TO_CODE_SYSTEM.get(claim.claim_type)
+        if code_system is None:
+            continue
+        result = retrieve_vocabulary_term(db, code_system, claim.text)
+        if result is None:
+            continue
+        term, _score = result
+        claim.normalized_code_system = term.code_system
+        claim.normalized_code = term.code
+        claim.normalized_display = term.display
+        normalized.append(claim)
+
+    db.commit()
+    for c in normalized:
+        db.refresh(c)
+    return normalized

@@ -43,6 +43,7 @@ class PipelineRunResult(BaseModel):
     citation_count: int
     verdict_count: int
     open_clarification_count: int
+    normalized_claim_count: int
 
 
 class PipelineTraceEntry(BaseModel):

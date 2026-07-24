@@ -10,7 +10,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.models import ClinicalKnowledgeChunk, PatientHistoryChunk
+from app.models import ClinicalKnowledgeChunk, PatientHistoryChunk, VocabularyTerm
 from app.services.embedding_service import embed_query
 
 
@@ -27,6 +27,27 @@ def retrieve_clinical_knowledge(
         .all()
     )
     return [(chunk, 1.0 - dist) for chunk, dist in rows]
+
+
+def retrieve_vocabulary_term(
+    db: Session, code_system: str, query: str
+) -> tuple[VocabularyTerm, float] | None:
+    """Returns the single closest vocabulary term within one code system
+    (RxNorm/SNOMED/LOINC), or None if the index has no terms for that
+    system. Used by terminology normalization (Phase 6) to map a claim's
+    free-text concept to a standardized code."""
+    query_vec = embed_query(query)
+    distance = VocabularyTerm.embedding.cosine_distance(query_vec)
+    row = (
+        db.query(VocabularyTerm, distance.label("distance"))
+        .filter(VocabularyTerm.code_system == code_system)
+        .order_by(distance)
+        .first()
+    )
+    if row is None:
+        return None
+    term, dist = row
+    return term, 1.0 - dist
 
 
 def retrieve_patient_history(

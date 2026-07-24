@@ -180,6 +180,14 @@ export default function ClaimGraphView({
                   {badge && (
                     <span className={`rounded px-2 py-0.5 font-medium ${badge.className}`}>{badge.label}</span>
                   )}
+                  {claim.normalized_code_system && (
+                    <span
+                      className="rounded bg-emerald-50 px-2 py-0.5 font-mono text-emerald-700"
+                      title={claim.normalized_display ?? undefined}
+                    >
+                      {claim.normalized_code_system} {claim.normalized_code}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => setExpandedClaimId(isExpanded ? null : claim.id)}

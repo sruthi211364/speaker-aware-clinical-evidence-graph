@@ -7,6 +7,7 @@ import {
   getClaimGraph,
   groundClaims,
   listTranscript,
+  normalizeTerminology,
   runPolicyCheck,
 } from '../api/encounters'
 import ClaimGraphView from '../components/ClaimGraphView'
@@ -65,6 +66,13 @@ export default function EncounterDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['claim-graph', encounterId] })
       queryClient.invalidateQueries({ queryKey: ['policy-verdicts', encounterId] })
       queryClient.invalidateQueries({ queryKey: ['clarifications', encounterId] })
+    },
+  })
+
+  const normalizeMutation = useMutation({
+    mutationFn: () => normalizeTerminology(encounterId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claim-graph', encounterId] })
     },
   })
 
@@ -142,6 +150,14 @@ export default function EncounterDetailPage() {
                 >
                   {policyCheckMutation.isPending ? 'Checking...' : 'Run policy check'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => normalizeMutation.mutate()}
+                  disabled={normalizeMutation.isPending}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {normalizeMutation.isPending ? 'Coding...' : 'Normalize terminology'}
+                </button>
               </div>
             </div>
             {extractMutation.isError && (
@@ -158,6 +174,11 @@ export default function EncounterDetailPage() {
             {policyCheckMutation.isError && (
               <p className="mb-3 text-sm text-red-600">
                 {errorDetail(policyCheckMutation.error, 'Policy check failed.')}
+              </p>
+            )}
+            {normalizeMutation.isError && (
+              <p className="mb-3 text-sm text-red-600">
+                {errorDetail(normalizeMutation.error, 'Terminology normalization failed.')}
               </p>
             )}
             {graphQuery.isLoading && <p className="text-sm text-slate-500">Loading claim graph...</p>}

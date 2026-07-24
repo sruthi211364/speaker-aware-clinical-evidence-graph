@@ -1,18 +1,18 @@
 """The pipeline as a LangGraph state graph: ingest -> extract_claims ->
-build_graph -> ground_claims -> run_policy_engine. Each node is a thin
-wrapper around the shared step functions in app/pipeline/steps.py, opening
-its own short-lived DB session (LangGraph state must stay JSON-serializable
-for the checkpointer, so a SQLAlchemy Session can't live in the state
-itself).
+build_graph -> ground_claims -> run_policy_engine -> normalize_terminology.
+Each node is a thin wrapper around the shared step functions in
+app/pipeline/steps.py, opening its own short-lived DB session (LangGraph
+state must stay JSON-serializable for the checkpointer, so a SQLAlchemy
+Session can't live in the state itself).
 
 Checkpointed to Postgres per encounter (thread_id = encounter_id), so a run
 can be inspected node-by-node after the fact via get_pipeline_trace -- this
 is the technical trace that sits alongside the clinician-facing attestation
 trail in the audit view (Phase 8).
 
-Phases 7-9 extend this graph with more nodes appended after run_policy_engine
-(terminology normalization, SOAP compilation, the clinician-review
-interrupt, signing) rather than replacing it.
+Phases 7-9 extend this graph with more nodes appended after
+normalize_terminology (SOAP compilation, the clinician-review interrupt,
+signing) rather than replacing it.
 """
 
 from typing import TypedDict
@@ -22,7 +22,13 @@ from langgraph.graph import END, START, StateGraph
 from app.db import SessionLocal
 from app.models import ClarificationQuestion, Encounter, TranscriptSegment
 from app.pipeline.checkpointer import checkpointer_context
-from app.pipeline.steps import build_graph_step, extract_claims_step, ground_claims_step, run_policy_engine_step
+from app.pipeline.steps import (
+    build_graph_step,
+    extract_claims_step,
+    ground_claims_step,
+    normalize_terminology_step,
+    run_policy_engine_step,
+)
 
 
 class PipelineState(TypedDict):
@@ -33,6 +39,7 @@ class PipelineState(TypedDict):
     citation_count: int
     verdict_count: int
     open_clarification_count: int
+    normalized_claim_count: int
 
 
 def _node_ingest(state: PipelineState) -> dict:
@@ -89,6 +96,16 @@ def _node_run_policy_engine(state: PipelineState) -> dict:
         db.close()
 
 
+def _node_normalize_terminology(state: PipelineState) -> dict:
+    db = SessionLocal()
+    try:
+        encounter = db.get(Encounter, state["encounter_id"])
+        normalized = normalize_terminology_step(db, encounter)
+        return {"normalized_claim_count": len(normalized)}
+    finally:
+        db.close()
+
+
 def _build_graph(checkpointer):
     builder = StateGraph(PipelineState)
     builder.add_node("ingest", _node_ingest)
@@ -96,13 +113,15 @@ def _build_graph(checkpointer):
     builder.add_node("build_graph", _node_build_graph)
     builder.add_node("ground_claims", _node_ground_claims)
     builder.add_node("run_policy_engine", _node_run_policy_engine)
+    builder.add_node("normalize_terminology", _node_normalize_terminology)
 
     builder.add_edge(START, "ingest")
     builder.add_edge("ingest", "extract_claims")
     builder.add_edge("extract_claims", "build_graph")
     builder.add_edge("build_graph", "ground_claims")
     builder.add_edge("ground_claims", "run_policy_engine")
-    builder.add_edge("run_policy_engine", END)
+    builder.add_edge("run_policy_engine", "normalize_terminology")
+    builder.add_edge("normalize_terminology", END)
 
     return builder.compile(checkpointer=checkpointer)
 
@@ -128,6 +147,7 @@ _STATE_KEY_TO_NODE = {
     "edge_count": "build_graph",
     "citation_count": "ground_claims",
     "verdict_count": "run_policy_engine",
+    "normalized_claim_count": "normalize_terminology",
 }
 
 

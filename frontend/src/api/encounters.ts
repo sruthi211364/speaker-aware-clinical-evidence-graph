@@ -90,6 +90,11 @@ export async function answerClarification(
   return res.data
 }
 
+export async function normalizeTerminology(encounterId: string): Promise<Claim[]> {
+  const res = await apiClient.post(`/encounters/${encounterId}/claims/normalize`)
+  return res.data
+}
+
 export async function runPipeline(encounterId: string): Promise<PipelineRunResult> {
   const res = await apiClient.post(`/encounters/${encounterId}/pipeline/run`)
   return res.data

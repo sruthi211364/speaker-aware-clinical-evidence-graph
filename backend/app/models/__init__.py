@@ -10,6 +10,7 @@ from app.models.policy_verdict import PolicyVerdict
 from app.models.soap_note import SoapNote, SoapNoteLine, SoapNoteLineClaim
 from app.models.transcript_segment import TranscriptSegment
 from app.models.user import User
+from app.models.vocabulary_term import VocabularyTerm
 
 __all__ = [
     "Base",
@@ -27,4 +28,5 @@ __all__ = [
     "SoapNoteLineClaim",
     "TranscriptSegment",
     "User",
+    "VocabularyTerm",
 ]

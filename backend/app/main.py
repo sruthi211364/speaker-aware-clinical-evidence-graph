@@ -1,7 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import claims, clarifications, encounters, graph, grounding, health, pipeline, policy, transcripts
+from app.api import (
+    claims,
+    clarifications,
+    encounters,
+    graph,
+    grounding,
+    health,
+    pipeline,
+    policy,
+    terminology,
+    transcripts,
+)
 from app.config import get_settings
 
 settings = get_settings()
@@ -24,4 +35,5 @@ app.include_router(graph.router)
 app.include_router(grounding.router)
 app.include_router(policy.router)
 app.include_router(clarifications.router)
+app.include_router(terminology.router)
 app.include_router(pipeline.router)

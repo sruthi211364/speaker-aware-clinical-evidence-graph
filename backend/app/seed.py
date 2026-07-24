@@ -1,6 +1,7 @@
-"""Seeds a small demo encounter (plus the RAG knowledge base, via
-app.seed_knowledge) so the system is explorable immediately after setup.
-Extended in later phases as claims, notes, and citations come online.
+"""Seeds a small demo encounter (plus the RAG knowledge base and vocabulary
+index, via app.seed_knowledge / app.seed_vocabulary) so the system is
+explorable immediately after setup. Extended in later phases as claims,
+notes, and citations come online.
 
 Usage: python -m app.seed
 """
@@ -9,6 +10,7 @@ from app.db import SessionLocal
 from app.models import Encounter, TranscriptSegment, User
 from app.models.enums import SpeakerRole
 from app.seed_knowledge import run as seed_knowledge
+from app.seed_vocabulary import run as seed_vocabulary
 
 
 def run() -> None:
@@ -66,3 +68,4 @@ def run() -> None:
 if __name__ == "__main__":
     run()
     seed_knowledge()
+    seed_vocabulary()
