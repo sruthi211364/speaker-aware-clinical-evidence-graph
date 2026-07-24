@@ -23,14 +23,6 @@ class Settings(BaseSettings):
     # ASR provider
     assemblyai_api_key: str = ""
 
-    # Langfuse
-    langfuse_public_key: str = ""
-    langfuse_secret_key: str = ""
-    langfuse_host: str = "https://cloud.langfuse.com"
-
-    # Mock EHR receiving endpoint
-    mock_ehr_base_url: str = "http://localhost:8000/mock-ehr"
-
 
 @lru_cache
 def get_settings() -> Settings:

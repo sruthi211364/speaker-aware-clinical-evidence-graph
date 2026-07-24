@@ -19,6 +19,27 @@ from app.models.enums import ClaimStatus, EdgeRelation, GroundingSourceType, Pol
 from app.services.claude_service import GroundedEvidenceInput, run_policy_checks
 
 
+def derive_claim_status(
+    *, safety_passed: bool, contradiction_passed: bool, missing_context_passed: bool, temporal_passed: bool
+) -> ClaimStatus:
+    """The precedence a claim's final status follows once all four
+    non-support checks have a result: clinical safety is the most urgent
+    finding clinically, so it takes precedence if more than one check
+    fails. Pulled out as its own function so the eval harness
+    (backend/eval/run_eval.py) scores against the exact same logic this
+    engine runs, not a separate reimplementation that could drift from it.
+    """
+    if not safety_passed:
+        return ClaimStatus.unsafe
+    if not contradiction_passed:
+        return ClaimStatus.contradicted
+    if not missing_context_passed:
+        return ClaimStatus.missing_context
+    if not temporal_passed:
+        return ClaimStatus.ambiguous
+    return ClaimStatus.supported
+
+
 def run_policy_engine_for_claim(db: Session, claim: Claim) -> list[PolicyVerdict]:
     verdicts: list[PolicyVerdict] = []
 
@@ -122,18 +143,12 @@ def run_policy_engine_for_claim(db: Session, claim: Claim) -> list[PolicyVerdict
 
     db.add_all(verdicts)
 
-    # A claim carries one status; clinical safety is the most urgent finding
-    # clinically, so it takes precedence if more than one check fails.
-    if not safety_passed:
-        claim.status = ClaimStatus.unsafe
-    elif not contradiction_passed:
-        claim.status = ClaimStatus.contradicted
-    elif not missing_context_passed:
-        claim.status = ClaimStatus.missing_context
-    elif not temporal_passed:
-        claim.status = ClaimStatus.ambiguous
-    else:
-        claim.status = ClaimStatus.supported
+    claim.status = derive_claim_status(
+        safety_passed=safety_passed,
+        contradiction_passed=contradiction_passed,
+        missing_context_passed=missing_context_passed,
+        temporal_passed=temporal_passed,
+    )
 
     if not missing_context_passed and check_result.clarification_question:
         guideline_citation = next(
