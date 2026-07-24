@@ -74,3 +74,25 @@ export interface Claim {
   created_at: string
   updated_at: string
 }
+
+export type EdgeRelation =
+  | 'supports'
+  | 'contradicts'
+  | 'refines'
+  | 'duplicates'
+  | 'depends_on_temporal_context'
+
+export interface ClaimEdge {
+  id: string
+  source_claim_id: string
+  target_claim_id: string
+  relation: EdgeRelation
+  rationale: string | null
+  confidence: number
+  created_at: string
+}
+
+export interface ClaimGraph {
+  claims: Claim[]
+  edges: ClaimEdge[]
+}

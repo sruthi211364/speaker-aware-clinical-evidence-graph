@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { extractClaims, listClaims, listTranscript } from '../api/encounters'
-import ClaimList from '../components/ClaimList'
+import { buildClaimGraph, extractClaims, getClaimGraph, listTranscript } from '../api/encounters'
+import ClaimGraphView from '../components/ClaimGraphView'
 import TranscriptView from '../components/TranscriptView'
 
 const TABS = ['Transcript', 'Claim Graph', 'SOAP Note', 'Clarifications', 'Audit & Lineage'] as const
 type Tab = (typeof TABS)[number]
+
+function errorDetail(error: unknown, fallback: string): string {
+  return (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? fallback
+}
 
 export default function EncounterDetailPage() {
   const { encounterId } = useParams<{ encounterId: string }>()
@@ -19,16 +23,23 @@ export default function EncounterDetailPage() {
     enabled: !!encounterId,
   })
 
-  const claimsQuery = useQuery({
-    queryKey: ['claims', encounterId],
-    queryFn: () => listClaims(encounterId!),
+  const graphQuery = useQuery({
+    queryKey: ['claim-graph', encounterId],
+    queryFn: () => getClaimGraph(encounterId!),
     enabled: !!encounterId,
   })
 
   const extractMutation = useMutation({
     mutationFn: () => extractClaims(encounterId!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['claims', encounterId] })
+      queryClient.invalidateQueries({ queryKey: ['claim-graph', encounterId] })
+    },
+  })
+
+  const buildGraphMutation = useMutation({
+    mutationFn: () => buildClaimGraph(encounterId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claim-graph', encounterId] })
     },
   })
 
@@ -70,26 +81,40 @@ export default function EncounterDetailPage() {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                Claim relationships (supports/contradicts/refines) arrive in Phase 3. For now: the flat
-                extracted claim list.
+                Claims grouped with their supports/contradicts/refines relationships. Contradicted claims
+                stay visible side by side instead of being blended.
               </p>
-              <button
-                type="button"
-                onClick={() => extractMutation.mutate()}
-                disabled={extractMutation.isPending}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {extractMutation.isPending ? 'Extracting...' : 'Extract claims'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => extractMutation.mutate()}
+                  disabled={extractMutation.isPending}
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {extractMutation.isPending ? 'Extracting...' : 'Extract claims'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => buildGraphMutation.mutate()}
+                  disabled={buildGraphMutation.isPending}
+                  className="rounded-md border border-indigo-600 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50"
+                >
+                  {buildGraphMutation.isPending ? 'Building...' : 'Build graph'}
+                </button>
+              </div>
             </div>
             {extractMutation.isError && (
+              <p className="mb-3 text-sm text-red-600">{errorDetail(extractMutation.error, 'Extraction failed.')}</p>
+            )}
+            {buildGraphMutation.isError && (
               <p className="mb-3 text-sm text-red-600">
-                {(extractMutation.error as { response?: { data?: { detail?: string } } })?.response?.data
-                  ?.detail ?? 'Extraction failed.'}
+                {errorDetail(buildGraphMutation.error, 'Graph construction failed.')}
               </p>
             )}
-            {claimsQuery.isLoading && <p className="text-sm text-slate-500">Loading claims...</p>}
-            {claimsQuery.data && <ClaimList claims={claimsQuery.data} />}
+            {graphQuery.isLoading && <p className="text-sm text-slate-500">Loading claim graph...</p>}
+            {graphQuery.data && (
+              <ClaimGraphView claims={graphQuery.data.claims} edges={graphQuery.data.edges} />
+            )}
           </div>
         )}
 
