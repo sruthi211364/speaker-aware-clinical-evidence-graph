@@ -1,5 +1,6 @@
 import type {
   Attestation,
+  AudioTranscriptionPreview,
   Claim,
   ClaimGraph,
   ClarificationQuestion,
@@ -10,6 +11,8 @@ import type {
   PipelineTraceEntry,
   PolicyVerdict,
   SoapNote,
+  SpeakerRole,
+  TranscribedUtterance,
   TranscriptSegment,
 } from '../types/domain'
 import { apiClient } from './client'
@@ -178,5 +181,29 @@ export async function exportNoteToFhir(encounterId: string, noteId: string): Pro
 
 export async function listEhrSubmissions(encounterId: string): Promise<MockEhrSubmission[]> {
   const res = await apiClient.get(`/encounters/${encounterId}/ehr-submissions`)
+  return res.data
+}
+
+export async function previewAudioTranscript(
+  encounterId: string,
+  file: File,
+): Promise<AudioTranscriptionPreview> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await apiClient.post(`/encounters/${encounterId}/transcript/audio/preview`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data
+}
+
+export async function commitAudioTranscript(
+  encounterId: string,
+  utterances: TranscribedUtterance[],
+  speakerRoleMap: Record<string, SpeakerRole>,
+): Promise<TranscriptSegment[]> {
+  const res = await apiClient.post(`/encounters/${encounterId}/transcript/audio/commit`, {
+    utterances,
+    speaker_role_map: speakerRoleMap,
+  })
   return res.data
 }

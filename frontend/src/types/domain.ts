@@ -208,3 +208,16 @@ export interface MockEhrSubmission {
   bundle: Record<string, unknown>
   received_at: string
 }
+
+export interface TranscribedUtterance {
+  speaker_label: string
+  start_ms: number
+  end_ms: number
+  text: string
+  confidence: number | null
+}
+
+export interface AudioTranscriptionPreview {
+  utterances: TranscribedUtterance[]
+  speaker_labels: string[]
+}

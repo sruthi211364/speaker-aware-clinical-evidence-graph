@@ -11,6 +11,7 @@ import {
   runPolicyCheck,
 } from '../api/encounters'
 import AttestationTrail from '../components/AttestationTrail'
+import AudioUploadPanel from '../components/AudioUploadPanel'
 import ClaimGraphView from '../components/ClaimGraphView'
 import ClarificationQueue from '../components/ClarificationQueue'
 import PipelineTraceView from '../components/PipelineTraceView'
@@ -107,6 +108,7 @@ export default function EncounterDetailPage() {
       <div className="mt-6">
         {activeTab === 'Transcript' && (
           <>
+            <AudioUploadPanel encounterId={encounterId!} />
             {transcriptQuery.isLoading && <p className="text-sm text-slate-500">Loading transcript...</p>}
             {transcriptQuery.data && <TranscriptView segments={transcriptQuery.data} />}
           </>
