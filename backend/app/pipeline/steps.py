@@ -294,27 +294,13 @@ def normalize_terminology_step(db: Session, encounter: Encounter) -> list[Claim]
     return normalized
 
 
-def compile_soap_note_step(db: Session, encounter: Encounter) -> SoapNote:
-    """Compiles surviving claims into a SOAP note: one line per claim,
-    grouped into subjective/objective/assessment/plan, with every line
-    linked back to the claim(s) it was built from. Contradicted claims are
-    never silently resolved into a single statement -- each contradicting
-    pair becomes one conflict line showing both sides with their sources.
-
-    Idempotent per encounter: once a note exists, recompiling returns it
-    unchanged. A clinician's in-progress review is a live, editable draft
-    (see the /notes/{id}/lines/... accept|edit|reject endpoints) -- it is
-    never silently regenerated out from under them by a later pipeline run.
-    """
-    existing = (
-        db.query(SoapNote)
-        .filter_by(encounter_id=encounter.id)
-        .order_by(SoapNote.version.desc())
-        .first()
-    )
-    if existing:
-        return existing
-
+def _populate_note_lines(db: Session, note: SoapNote, encounter: Encounter) -> None:
+    """Builds this note's lines from the encounter's current claims: one
+    line per claim, grouped into subjective/objective/assessment/plan.
+    Contradicted claims are never silently resolved into a single statement
+    -- each contradicting pair becomes one conflict line showing both sides
+    with their sources. Shared by compile_soap_note_step (first version) and
+    create_next_note_version_step (an amendment after signing)."""
     claims = db.query(Claim).filter_by(encounter_id=encounter.id).order_by(Claim.created_at).all()
     eligible = [c for c in claims if c.status not in _EXCLUDED_FROM_NOTE]
     eligible_ids = {c.id for c in eligible}
@@ -331,10 +317,6 @@ def compile_soap_note_step(db: Session, encounter: Encounter) -> SoapNote:
         if eligible_ids
         else []
     )
-
-    note = SoapNote(encounter_id=encounter.id, version=1, status=NoteStatus.draft)
-    db.add(note)
-    db.flush()
 
     positions = {section: 0 for section in SoapSection}
 
@@ -382,6 +364,53 @@ def compile_soap_note_step(db: Session, encounter: Encounter) -> SoapNote:
         text = f"{_SOURCE_LABEL[claim.source_type]}: {claim.text}" if needs_attribution else claim.text
         add_line(section, text, False, [claim.id])
 
+
+def compile_soap_note_step(db: Session, encounter: Encounter) -> SoapNote:
+    """Compiles surviving claims into version 1 of the encounter's SOAP
+    note. Idempotent per encounter: once any note exists, recompiling
+    returns the latest version unchanged. A clinician's in-progress review
+    is a live, editable draft (see the /notes/{id}/lines/... accept|edit|
+    reject endpoints) -- it is never silently regenerated out from under
+    them by a later pipeline run. To pick up claims that changed after a
+    note was signed, see create_next_note_version_step."""
+    existing = (
+        db.query(SoapNote)
+        .filter_by(encounter_id=encounter.id)
+        .order_by(SoapNote.version.desc())
+        .first()
+    )
+    if existing:
+        return existing
+
+    note = SoapNote(encounter_id=encounter.id, version=1, status=NoteStatus.draft)
+    db.add(note)
+    db.flush()
+    _populate_note_lines(db, note, encounter)
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+def create_next_note_version_step(db: Session, encounter: Encounter) -> SoapNote:
+    """Starts a new draft version of the note, recompiled fresh from the
+    encounter's current claims -- the only way to change a note's content
+    once a version has been signed (a signed version is never mutated).
+    Requires the latest version to actually be signed; use compile_soap_note
+    to create version 1, and the accept/edit/reject endpoints to change an
+    unsigned draft in place."""
+    latest = (
+        db.query(SoapNote)
+        .filter_by(encounter_id=encounter.id)
+        .order_by(SoapNote.version.desc())
+        .first()
+    )
+    if latest is None or latest.status != NoteStatus.signed:
+        raise ValueError("Can only start a new note version once the latest version is signed")
+
+    note = SoapNote(encounter_id=encounter.id, version=latest.version + 1, status=NoteStatus.draft)
+    db.add(note)
+    db.flush()
+    _populate_note_lines(db, note, encounter)
     db.commit()
     db.refresh(note)
     return note

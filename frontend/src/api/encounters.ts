@@ -5,6 +5,7 @@ import type {
   ClarificationQuestion,
   Encounter,
   GroundingCitation,
+  MockEhrSubmission,
   PipelineRunResult,
   PipelineTraceEntry,
   PolicyVerdict,
@@ -157,5 +158,25 @@ export async function rejectNoteLine(
 
 export async function listAttestations(encounterId: string): Promise<Attestation[]> {
   const res = await apiClient.get(`/encounters/${encounterId}/attestations`)
+  return res.data
+}
+
+export async function signSoapNote(encounterId: string, noteId: string): Promise<SoapNote> {
+  const res = await apiClient.post(`/encounters/${encounterId}/notes/${noteId}/sign`)
+  return res.data
+}
+
+export async function amendSoapNote(encounterId: string): Promise<SoapNote> {
+  const res = await apiClient.post(`/encounters/${encounterId}/notes/amend`)
+  return res.data
+}
+
+export async function exportNoteToFhir(encounterId: string, noteId: string): Promise<MockEhrSubmission> {
+  const res = await apiClient.post(`/encounters/${encounterId}/notes/${noteId}/export-fhir`)
+  return res.data
+}
+
+export async function listEhrSubmissions(encounterId: string): Promise<MockEhrSubmission[]> {
+  const res = await apiClient.get(`/encounters/${encounterId}/ehr-submissions`)
   return res.data
 }

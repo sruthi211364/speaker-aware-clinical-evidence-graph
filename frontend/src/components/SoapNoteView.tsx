@@ -2,15 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import {
   acceptNoteLine,
+  amendSoapNote,
   compileSoapNote,
   editNoteLine,
+  exportNoteToFhir,
   getEncounter,
   getLatestSoapNote,
   getPipelineStatus,
   listAttestations,
   listClaims,
+  listEhrSubmissions,
   rejectNoteLine,
   resumePipelineReview,
+  signSoapNote,
 } from '../api/encounters'
 import type { SoapNoteLine, SoapSection } from '../types/domain'
 
@@ -161,10 +165,15 @@ export default function SoapNoteView({ encounterId }: { encounterId: string }) {
     queryKey: ['encounter', encounterId],
     queryFn: () => getEncounter(encounterId),
   })
+  const submissionsQuery = useQuery({
+    queryKey: ['ehr-submissions', encounterId],
+    queryFn: () => listEhrSubmissions(encounterId),
+  })
 
   const invalidateNote = () => {
     queryClient.invalidateQueries({ queryKey: ['soap-note', encounterId] })
     queryClient.invalidateQueries({ queryKey: ['attestations', encounterId] })
+    queryClient.invalidateQueries({ queryKey: ['encounter', encounterId] })
   }
 
   const compileMutation = useMutation({
@@ -182,6 +191,20 @@ export default function SoapNoteView({ encounterId }: { encounterId: string }) {
   const lineActionMutation = useMutation({
     mutationFn: (action: () => Promise<unknown>) => action(),
     onSuccess: invalidateNote,
+  })
+  const signMutation = useMutation({
+    mutationFn: (noteId: string) => signSoapNote(encounterId, noteId),
+    onSuccess: invalidateNote,
+  })
+  const amendMutation = useMutation({
+    mutationFn: () => amendSoapNote(encounterId),
+    onSuccess: invalidateNote,
+  })
+  const exportMutation = useMutation({
+    mutationFn: (noteId: string) => exportNoteToFhir(encounterId, noteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ehr-submissions', encounterId] })
+    },
   })
 
   const claimTextById = new Map((claimsQuery.data ?? []).map((c) => [c.id, c.text]))
@@ -245,6 +268,55 @@ export default function SoapNoteView({ encounterId }: { encounterId: string }) {
       </div>
       {resumeMutation.isError && (
         <p className="text-sm text-red-600">{errorDetail(resumeMutation.error, 'Resume failed.')}</p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white p-3">
+        {!isSigned && (
+          <button
+            type="button"
+            onClick={() => signMutation.mutate(note.id)}
+            disabled={signMutation.isPending}
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+          >
+            {signMutation.isPending ? 'Signing...' : 'Sign note'}
+          </button>
+        )}
+        {isSigned && (
+          <>
+            <button
+              type="button"
+              onClick={() => amendMutation.mutate()}
+              disabled={amendMutation.isPending}
+              className="rounded-md border border-indigo-300 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+            >
+              {amendMutation.isPending ? 'Starting...' : 'Start new version (amend)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportMutation.mutate(note.id)}
+              disabled={exportMutation.isPending}
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {exportMutation.isPending ? 'Exporting...' : 'Export to EHR (FHIR)'}
+            </button>
+          </>
+        )}
+        {submissionsQuery.data && submissionsQuery.data.length > 0 && (
+          <span className="text-xs text-slate-500">
+            Exported to the mock EHR {submissionsQuery.data.length} time
+            {submissionsQuery.data.length === 1 ? '' : 's'}; last at{' '}
+            {new Date(submissionsQuery.data[submissionsQuery.data.length - 1].received_at).toLocaleString()}
+          </span>
+        )}
+      </div>
+      {signMutation.isError && (
+        <p className="text-sm text-red-600">{errorDetail(signMutation.error, 'Signing failed.')}</p>
+      )}
+      {amendMutation.isError && (
+        <p className="text-sm text-red-600">{errorDetail(amendMutation.error, 'Starting a new version failed.')}</p>
+      )}
+      {exportMutation.isError && (
+        <p className="text-sm text-red-600">{errorDetail(exportMutation.error, 'FHIR export failed.')}</p>
       )}
 
       {note.lines.length === 0 && (

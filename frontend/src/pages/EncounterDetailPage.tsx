@@ -10,6 +10,7 @@ import {
   normalizeTerminology,
   runPolicyCheck,
 } from '../api/encounters'
+import AttestationTrail from '../components/AttestationTrail'
 import ClaimGraphView from '../components/ClaimGraphView'
 import ClarificationQueue from '../components/ClarificationQueue'
 import PipelineTraceView from '../components/PipelineTraceView'
@@ -195,7 +196,14 @@ export default function EncounterDetailPage() {
 
         {activeTab === 'Clarifications' && <ClarificationQueue encounterId={encounterId!} />}
 
-        {activeTab === 'Audit & Lineage' && <PipelineTraceView encounterId={encounterId!} />}
+        {activeTab === 'Audit & Lineage' && (
+          <div className="space-y-8">
+            <AttestationTrail encounterId={encounterId!} />
+            <div className="border-t border-slate-200 pt-6">
+              <PipelineTraceView encounterId={encounterId!} />
+            </div>
+          </div>
+        )}
 
         {activeTab === 'SOAP Note' && <SoapNoteView encounterId={encounterId!} />}
       </div>

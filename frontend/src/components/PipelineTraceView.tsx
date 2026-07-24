@@ -32,8 +32,8 @@ export default function PipelineTraceView({ encounterId }: { encounterId: string
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500">
           LangGraph run trace: the technical node-by-node history behind this encounter's pipeline,
-          checkpointed to Postgres. The full audit and lineage view (combined with the clinician
-          attestation trail) arrives in a later phase.
+          checkpointed to Postgres -- the machine-steps half of the audit view, alongside the
+          clinician attestation trail above.
         </p>
         <button
           type="button"

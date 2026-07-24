@@ -30,9 +30,18 @@ fastembed==0.8.0
 langgraph==1.2.9
 langgraph-checkpoint-postgres==3.1.0
 
-# --- Schema validation / observability (added + version-pinned when Phase 5 lands) ---
-guardrails-ai
-langfuse
+# --- Terminology normalization (installed + verified in Phase 6) ---
+# (pgvector + fastembed above cover the embedding search; no new package)
 
-# --- FHIR export (added + version-pinned when Phase 8 lands) ---
-fhir.resources
+# --- SOAP compilation + review (installed + verified in Phase 7) ---
+# (LangGraph's interrupt()/Command() are already part of langgraph above)
+
+# --- FHIR export (installed + verified in Phase 8) ---
+# R4B, the actively-maintained successor namespace in this library -- see
+# README deviations. Composition/Observation/Condition/DocumentReference are
+# unchanged in content between R4 and R4B.
+fhir.resources==8.3.0
+# fhir_core (fhir.resources' dependency) imports annotated_types.SLOTS, which
+# annotated_types 0.8.0 removed without fhir_core pinning against it --
+# pinned here to the last version that still has it.
+annotated_types==0.7.0

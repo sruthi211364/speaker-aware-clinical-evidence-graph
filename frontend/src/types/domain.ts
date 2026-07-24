@@ -186,7 +186,7 @@ export interface SoapNote {
   lines: SoapNoteLine[]
 }
 
-export type AttestationAction = 'accepted' | 'edited' | 'rejected' | 'added'
+export type AttestationAction = 'accepted' | 'edited' | 'rejected' | 'added' | 'signed'
 
 export interface Attestation {
   id: string
@@ -199,4 +199,12 @@ export interface Attestation {
   before_value: string | null
   after_value: string | null
   created_at: string
+}
+
+export interface MockEhrSubmission {
+  id: string
+  encounter_id: string
+  note_id: string
+  bundle: Record<string, unknown>
+  received_at: string
 }

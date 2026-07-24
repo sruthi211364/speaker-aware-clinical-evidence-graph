@@ -75,6 +75,7 @@ class AttestationAction(str, enum.Enum):
     edited = "edited"
     rejected = "rejected"
     added = "added"
+    signed = "signed"
 
 
 class GroundingSourceType(str, enum.Enum):

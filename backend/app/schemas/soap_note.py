@@ -78,3 +78,13 @@ class AttestationRead(BaseModel):
     before_value: str | None
     after_value: str | None
     created_at: dt.datetime
+
+
+class MockEhrSubmissionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    encounter_id: uuid.UUID
+    note_id: uuid.UUID
+    bundle: dict
+    received_at: dt.datetime

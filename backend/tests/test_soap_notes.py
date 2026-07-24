@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
-from app.models import SoapNote
-from app.models.enums import NoteStatus
+from app.models import Claim, SoapNote
+from app.models.enums import ClaimStatus, ClaimType, NoteStatus, SourceType
 from app.services.claude_service import (
     ClaimExtractionResult,
     EdgeExtractionResult,
@@ -270,3 +270,96 @@ def test_note_and_line_lookup_404_on_mismatched_encounter(client):
 
     resp = client.post(f"/encounters/{encounter2['id']}/notes/{note1['id']}/lines/{note1['lines'][0]['id']}/accept")
     assert resp.status_code == 404
+
+
+def test_sign_note_locks_it_and_advances_encounter_status(client):
+    encounter = _seed_supported_claims(client)
+    note = client.post(f"/encounters/{encounter['id']}/notes/compile").json()
+
+    resp = client.post(f"/encounters/{encounter['id']}/notes/{note['id']}/sign")
+    assert resp.status_code == 201
+    signed = resp.json()
+    assert signed["status"] == "signed"
+    assert signed["signed_by"] is not None
+    assert signed["signed_at"] is not None
+
+    encounter_after = client.get(f"/encounters/{encounter['id']}").json()
+    assert encounter_after["status"] == "signed"
+
+    attestations = client.get(f"/encounters/{encounter['id']}/attestations").json()
+    assert attestations[-1]["action"] == "signed"
+    assert attestations[-1]["note_line_id"] is None
+
+
+def test_sign_note_is_blocked_while_a_clarification_is_unresolved(client):
+    encounter = client.post("/encounters", json={}).json()
+    client.post(
+        f"/encounters/{encounter['id']}/ehr-context",
+        json={"items": [{"claim_type": "symptom", "text": "patient reports fatigue", "record_id": "c"}]},
+    )
+    missing_context_result = _clean_check_result(
+        missing_context=True,
+        missing_context_rationale="Duration and severity are not documented.",
+        clarification_question="How long has the fatigue lasted, and how severe is it?",
+    )
+    with patch("app.services.policy_engine.run_policy_checks", return_value=missing_context_result):
+        client.post(f"/encounters/{encounter['id']}/claims/policy-check")
+
+    note = client.post(f"/encounters/{encounter['id']}/notes/compile").json()
+    resp = client.post(f"/encounters/{encounter['id']}/notes/{note['id']}/sign")
+    assert resp.status_code == 409
+    assert "unresolved" in resp.json()["detail"]
+
+
+def test_sign_note_rejects_already_signed(client):
+    encounter = _seed_supported_claims(client)
+    note = client.post(f"/encounters/{encounter['id']}/notes/compile").json()
+    client.post(f"/encounters/{encounter['id']}/notes/{note['id']}/sign")
+
+    resp = client.post(f"/encounters/{encounter['id']}/notes/{note['id']}/sign")
+    assert resp.status_code == 409
+
+
+def test_amend_requires_latest_version_to_be_signed(client):
+    encounter = _seed_supported_claims(client)
+    client.post(f"/encounters/{encounter['id']}/notes/compile").json()
+
+    resp = client.post(f"/encounters/{encounter['id']}/notes/amend")
+    assert resp.status_code == 409
+
+
+def test_amend_after_signing_creates_new_version_reflecting_current_claims(client, db_session):
+    encounter = _seed_supported_claims(client)
+    note = client.post(f"/encounters/{encounter['id']}/notes/compile").json()
+    client.post(f"/encounters/{encounter['id']}/notes/{note['id']}/sign")
+
+    # Simulates a claim that reached "supported" after signing (e.g. via a
+    # clarification answered later and independently policy-checked) --
+    # added directly since /claims/policy-check's idempotency is per
+    # encounter, not per claim, and isn't what's under test here.
+    db_session.add(
+        Claim(
+            encounter_id=encounter["id"],
+            text="blood pressure 130/85",
+            claim_type=ClaimType.vital,
+            source_type=SourceType.ehr_data,
+            source_reference="d",
+            confidence=1.0,
+            status=ClaimStatus.supported,
+        )
+    )
+    db_session.commit()
+
+    resp = client.post(f"/encounters/{encounter['id']}/notes/amend")
+    assert resp.status_code == 201
+    amended = resp.json()
+    assert amended["version"] == 2
+    assert amended["status"] == "draft"
+    assert any("blood pressure" in line["text"] for line in amended["lines"])
+
+    encounter_after = client.get(f"/encounters/{encounter['id']}").json()
+    assert encounter_after["status"] == "drafted"
+
+    notes = client.get(f"/encounters/{encounter['id']}/notes").json()
+    assert [n["version"] for n in notes] == [1, 2]
+    assert notes[0]["status"] == "signed"

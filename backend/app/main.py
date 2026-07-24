@@ -6,6 +6,7 @@ from app.api import (
     claims,
     clarifications,
     encounters,
+    fhir_export,
     graph,
     grounding,
     health,
@@ -40,4 +41,5 @@ app.include_router(clarifications.router)
 app.include_router(terminology.router)
 app.include_router(soap_notes.router)
 app.include_router(attestations.router)
+app.include_router(fhir_export.router)
 app.include_router(pipeline.router)

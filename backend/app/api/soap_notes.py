@@ -1,12 +1,14 @@
+import datetime as dt
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_encounter_or_404, get_or_create_demo_user
 from app.auth import require_auth
 from app.db import get_db
-from app.models import Attestation, Claim, Encounter, SoapNote, SoapNoteLine
-from app.models.enums import AttestationAction, ClaimStatus, NoteStatus
-from app.pipeline.steps import compile_soap_note_step
+from app.models import Attestation, Claim, ClarificationQuestion, Encounter, SoapNote, SoapNoteLine
+from app.models.enums import AttestationAction, ClaimStatus, EncounterStatus, NoteStatus
+from app.pipeline.steps import compile_soap_note_step, create_next_note_version_step
 from app.schemas.soap_note import AttestationRead, SoapNoteLineEditRequest, SoapNoteRead
 
 router = APIRouter(
@@ -40,7 +42,7 @@ def _write_attestation(
     db: Session,
     encounter: Encounter,
     note: SoapNote,
-    line: SoapNoteLine,
+    line: SoapNoteLine | None,
     action: AttestationAction,
     before_value: str | None,
     after_value: str | None,
@@ -49,8 +51,8 @@ def _write_attestation(
     attestation = Attestation(
         encounter_id=encounter.id,
         note_version_id=note.id,
-        note_line_id=line.id,
-        claim_id=line.claim_links[0].claim_id if line.claim_links else None,
+        note_line_id=line.id if line else None,
+        claim_id=line.claim_links[0].claim_id if line and line.claim_links else None,
         actor_id=actor.id,
         action=action,
         before_value=before_value,
@@ -148,3 +150,63 @@ def reject_line(
             claim.status = ClaimStatus.rejected
     db.flush()
     return _write_attestation(db, encounter, note, line, AttestationAction.rejected, before, None)
+
+
+@router.post("/{note_id}/sign", response_model=SoapNoteRead, status_code=201)
+def sign_note(
+    note_id: str,
+    encounter: Encounter = Depends(get_encounter_or_404),
+    db: Session = Depends(get_db),
+):
+    """Signing locks the note: no further line edits are possible (a change
+    after this point requires a new version -- see POST .../notes/amend).
+    Blocked while any clarification question for this encounter is still
+    unanswered, so a note can never be signed over a known, unresolved gap
+    -- the same zero-trust guarantee the policy engine enforces earlier in
+    the pipeline, now enforced at the final gate too."""
+    note = _get_note_or_404(encounter, note_id, db)
+    if note.status == NoteStatus.signed:
+        raise HTTPException(status_code=409, detail="Note is already signed")
+    latest = (
+        db.query(SoapNote)
+        .filter_by(encounter_id=encounter.id)
+        .order_by(SoapNote.version.desc())
+        .first()
+    )
+    if latest.id != note.id:
+        raise HTTPException(status_code=409, detail="Only the latest note version can be signed")
+    open_clarifications = (
+        db.query(ClarificationQuestion).filter_by(encounter_id=encounter.id, resolved=False).count()
+    )
+    if open_clarifications:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{open_clarifications} clarification question(s) are still unresolved for this encounter",
+        )
+
+    actor = get_or_create_demo_user(db, "clinician")
+    note.status = NoteStatus.signed
+    note.signed_by = actor.id
+    note.signed_at = dt.datetime.utcnow()
+    encounter.status = EncounterStatus.signed
+    db.flush()
+    _write_attestation(
+        db, encounter, note, None, AttestationAction.signed, None, f"Signed note version {note.version}"
+    )
+    db.refresh(note)
+    return SoapNoteRead.from_note(note)
+
+
+@router.post("/amend", response_model=SoapNoteRead, status_code=201)
+def amend_note(encounter: Encounter = Depends(get_encounter_or_404), db: Session = Depends(get_db)):
+    """Starts a new draft version once the latest version is signed,
+    recompiled fresh from the encounter's current claims -- the only way to
+    change a note's content after signing (the signed version itself is
+    never mutated)."""
+    try:
+        note = create_next_note_version_step(db, encounter)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    encounter.status = EncounterStatus.drafted
+    db.commit()
+    return SoapNoteRead.from_note(note)
