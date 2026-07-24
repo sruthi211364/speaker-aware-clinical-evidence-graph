@@ -46,3 +46,31 @@ export interface Encounter {
   created_at: string
   updated_at: string
 }
+
+export interface TranscriptSegment {
+  id: string
+  encounter_id: string
+  speaker_role: SpeakerRole
+  speaker_identifier: string | null
+  start_ms: number
+  end_ms: number
+  text: string
+  confidence: number | null
+  created_at: string
+}
+
+export interface Claim {
+  id: string
+  encounter_id: string
+  text: string
+  claim_type: ClaimType
+  source_type: SourceType
+  source_reference: string | null
+  confidence: number
+  status: ClaimStatus
+  normalized_code_system: string | null
+  normalized_code: string | null
+  normalized_display: string | null
+  created_at: string
+  updated_at: string
+}

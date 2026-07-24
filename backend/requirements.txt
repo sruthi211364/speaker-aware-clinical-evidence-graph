@@ -13,8 +13,10 @@ pytest==9.1.1
 pytest-asyncio==1.4.0
 httpx==0.28.1
 
-# --- Reasoning / orchestration (added + version-pinned when Phase 2 / Phase 5 land) ---
-anthropic
+# --- Reasoning (installed + verified in Phase 2) ---
+anthropic==0.119.0
+
+# --- Orchestration (added + version-pinned when Phase 5 lands) ---
 langgraph
 langgraph-checkpoint-postgres
 langchain

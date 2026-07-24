@@ -17,7 +17,7 @@ stored as a versioned attestation, so there is a full lineage from raw
 encounter to signed record.
 
 This is a portfolio/prototype build, developed iteratively phase by phase.
-Current status: **Phase 1 of 10 complete** (see [Build phases](#build-phases)).
+Current status: **Phase 2 of 10 complete** (see [Build phases](#build-phases)).
 
 ## Why this exists
 
@@ -129,7 +129,7 @@ pytest
 Each phase lands as a runnable increment; see the repo's task history / commits for what's actually shipped so far.
 
 1. **Scaffold** -- FastAPI, Postgres+pgvector via Docker Compose, all domain models, Alembic migrations, health check, React+TS+Vite shell. ✅ done
-2. **Ingestion + claim extraction** -- diarized transcript ingestion, Claude-backed structured claim extraction, transcript + claim list views.
+2. **Ingestion + claim extraction** -- diarized transcript ingestion, Claude-backed structured claim extraction (`client.messages.parse()` + `output_config.format`), mock EHR context ingestion, transcript + claim list views. ✅ done
 3. **Graph construction** -- claim edges (supports/contradicts/refines/duplicates), claim graph view.
 4. **RAG grounding** -- clinical knowledge index + longitudinal patient history index, grounding citations.
 5. **LangGraph + zero-trust policy engine** -- state graph with Postgres checkpointer, 5-part policy engine, clarification generator, run trace view.
