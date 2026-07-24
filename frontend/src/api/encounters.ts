@@ -1,4 +1,4 @@
-import type { Claim, ClaimGraph, Encounter, TranscriptSegment } from '../types/domain'
+import type { Claim, ClaimGraph, Encounter, GroundingCitation, TranscriptSegment } from '../types/domain'
 import { apiClient } from './client'
 
 export async function listEncounters(): Promise<Encounter[]> {
@@ -38,5 +38,18 @@ export async function getClaimGraph(encounterId: string): Promise<ClaimGraph> {
 
 export async function buildClaimGraph(encounterId: string): Promise<ClaimGraph['edges']> {
   const res = await apiClient.post(`/encounters/${encounterId}/claim-graph/build`)
+  return res.data
+}
+
+export async function groundClaims(encounterId: string): Promise<GroundingCitation[]> {
+  const res = await apiClient.post(`/encounters/${encounterId}/claims/ground`)
+  return res.data
+}
+
+export async function getClaimCitations(
+  encounterId: string,
+  claimId: string,
+): Promise<GroundingCitation[]> {
+  const res = await apiClient.get(`/encounters/${encounterId}/claims/${claimId}/citations`)
   return res.data
 }

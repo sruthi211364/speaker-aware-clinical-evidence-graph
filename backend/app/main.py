@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import claims, encounters, graph, health, transcripts
+from app.api import claims, encounters, graph, grounding, health, transcripts
 from app.config import get_settings
 
 settings = get_settings()
@@ -21,3 +21,4 @@ app.include_router(encounters.router)
 app.include_router(transcripts.router)
 app.include_router(claims.router)
 app.include_router(graph.router)
+app.include_router(grounding.router)

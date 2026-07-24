@@ -96,3 +96,15 @@ export interface ClaimGraph {
   claims: Claim[]
   edges: ClaimEdge[]
 }
+
+export type GroundingSourceType = 'guideline' | 'drug_data' | 'prior_encounter' | 'coded_vocabulary'
+
+export interface GroundingCitation {
+  id: string
+  claim_id: string | null
+  source_type: GroundingSourceType
+  source_identifier: string | null
+  excerpt: string | null
+  relevance_score: number
+  created_at: string
+}

@@ -16,6 +16,12 @@ httpx==0.28.1
 # --- Reasoning (installed + verified in Phase 2) ---
 anthropic==0.119.0
 
+# --- RAG grounding (installed + verified in Phase 4) ---
+# Local embeddings (fastembed/onnxruntime, no torch) instead of a hosted
+# embeddings API -- see README for why this deviates from the brief's
+# LangChain-based retrieval layer.
+fastembed==0.8.0
+
 # --- Orchestration (added + version-pinned when Phase 5 lands) ---
 langgraph
 langgraph-checkpoint-postgres

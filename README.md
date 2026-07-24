@@ -17,7 +17,7 @@ stored as a versioned attestation, so there is a full lineage from raw
 encounter to signed record.
 
 This is a portfolio/prototype build, developed iteratively phase by phase.
-Current status: **Phase 3 of 10 complete** (see [Build phases](#build-phases)).
+Current status: **Phase 4 of 10 complete** (see [Build phases](#build-phases)).
 
 ## Why this exists
 
@@ -77,7 +77,7 @@ or traversal complexity ever outgrows relational joins.
 
 - **Backend**: FastAPI, SQLAlchemy 2.0, Alembic, Postgres + pgvector, Python 3.11
 - **Reasoning**: Claude (Anthropic) via structured outputs, orchestrated with LangGraph (from Phase 5)
-- **Retrieval**: LangChain + pgvector for two RAG indexes (clinical knowledge, longitudinal patient history) (from Phase 4)
+- **Retrieval**: pgvector for two RAG indexes (clinical knowledge, longitudinal patient history), with local embeddings via `fastembed`/`bge-small-en-v1.5` -- see [deviations](#deviations-from-the-original-brief) below
 - **Validation**: Guardrails AI as an independent schema check ahead of the clinical policy engine (from Phase 5)
 - **Observability**: Langfuse tracing on every Claude call (from Phase 5)
 - **FHIR export**: `fhir.resources` (Composition/Observation/Condition/DocumentReference) (from Phase 8)
@@ -96,12 +96,17 @@ docker compose up --build
 - Frontend: http://localhost:5173
 - Postgres: localhost:5433 (user/pass/db: `ceg`/`ceg`/`ceg`)
 
-Seed demo data (one encounter with a deliberate patient/caregiver timeline
-contradiction, used to exercise Phase 3's contradiction detection later):
+Seed demo data -- one encounter with a deliberate patient/caregiver timeline
+contradiction (exercises Phase 3's contradiction detection) plus the RAG
+knowledge base (guideline snippets, drug interaction facts, and prior
+encounter notes for the same demo patient, used for Phase 4 grounding):
 
 ```bash
 docker compose exec api python -m app.seed
 ```
+
+The first run downloads the local embedding model (~30MB, cached after) to
+embed the knowledge base -- no API key required for this step.
 
 ### Local (non-Docker) development
 
@@ -131,13 +136,18 @@ Each phase lands as a runnable increment; see the repo's task history / commits 
 1. **Scaffold** -- FastAPI, Postgres+pgvector via Docker Compose, all domain models, Alembic migrations, health check, React+TS+Vite shell. ✅ done
 2. **Ingestion + claim extraction** -- diarized transcript ingestion, Claude-backed structured claim extraction (`client.messages.parse()` + `output_config.format`), mock EHR context ingestion, transcript + claim list views. ✅ done
 3. **Graph construction** -- Claude-backed claim edge generation (supports/contradicts/refines/duplicates/depends_on_temporal_context), claim graph view with contradictions surfaced side by side rather than merged. ✅ done
-4. **RAG grounding** -- clinical knowledge index + longitudinal patient history index, grounding citations.
+4. **RAG grounding** -- clinical knowledge index (guideline/documentation-requirement/drug-interaction snippets) + longitudinal patient history index (prior encounter notes), both pgvector-backed with local embeddings; grounding citations retrievable per claim; citation panel in the claim graph view. ✅ done
 5. **LangGraph + zero-trust policy engine** -- state graph with Postgres checkpointer, 5-part policy engine, clarification generator, run trace view.
 6. **Terminology normalization** -- RxNorm/SNOMED CT/LOINC embedding index.
 7. **SOAP compilation + review workspace** -- LangGraph `interrupt()`-based review node, note editor with accept/edit/reject + attestations.
 8. **Signing, versioning, FHIR export** -- note versioning, FHIR R4 resources, mock EHR endpoint, audit/lineage view.
 9. **Raw audio ingestion** -- `TranscriptionProvider` interface, AssemblyAI Universal 3 Pro + Medical Mode implementation.
 10. **Evaluation harness + polish** -- golden dataset, extraction/policy accuracy scoring, seeded demo encounters, this README's walkthrough section, SECURITY.md.
+
+## Deviations from the original brief
+
+- **RAG retrieval layer: direct pgvector queries via SQLAlchemy, not LangChain's `PGVector` vectorstore.** The brief specifies LangChain for the retrieval layer. This build queries `clinical_knowledge_chunks` / `patient_history_chunks` directly with pgvector's `cosine_distance()` operator instead. Reasoning: LangChain's `PGVector` abstraction manages its own storage tables, which would sit awkwardly alongside this project's existing SQLAlchemy domain models (`GroundingCitation` needs to reference retrieved chunks by our own IDs regardless of how the vectorstore is implemented internally), and the retrieval logic here is simple enough (two tables, cosine similarity, optional patient-scoping) that the direct approach is fewer moving parts for a fast-moving prototype. If the retrieval logic grows more complex (hybrid search, re-ranking, multiple retrievers), LangChain's abstractions would earn their keep and this is a reasonable place to introduce them.
+- **Local embeddings (`fastembed` / `bge-small-en-v1.5`, 384-dim) instead of a hosted embeddings API.** Anthropic doesn't offer an embeddings endpoint and recommends Voyage AI for production use. This prototype uses a small local ONNX model instead so it doesn't need a second paid API key beyond `ANTHROPIC_API_KEY` -- everything else (claim extraction, edge generation) already depends on Claude, and requiring a second vendor's credits just to demo grounding felt like unnecessary friction for a portfolio build. Swapping in Voyage AI (or any other embeddings provider) later is a small, isolated change confined to `app/services/embedding_service.py`.
 
 ## Known limitations (by design, for this prototype)
 

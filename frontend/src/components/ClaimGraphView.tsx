@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import ClaimCitationsPanel from './ClaimCitationsPanel'
 import type { Claim, ClaimEdge, SourceType } from '../types/domain'
 
 const SOURCE_LABELS: Record<SourceType, string> = {
@@ -28,7 +30,16 @@ function ClaimChip({ claim }: { claim: Claim }) {
   )
 }
 
-export default function ClaimGraphView({ claims, edges }: { claims: Claim[]; edges: ClaimEdge[] }) {
+export default function ClaimGraphView({
+  encounterId,
+  claims,
+  edges,
+}: {
+  encounterId: string
+  claims: Claim[]
+  edges: ClaimEdge[]
+}) {
+  const [expandedClaimId, setExpandedClaimId] = useState<string | null>(null)
   const claimById = new Map(claims.map((c) => [c.id, c]))
   const contradictions = edges.filter((e) => e.relation === 'contradicts')
   const otherEdges = edges.filter((e) => e.relation !== 'contradicts')
@@ -101,6 +112,7 @@ export default function ClaimGraphView({ claims, edges }: { claims: Claim[]; edg
           {claims.map((claim) => {
             const isContradicted = contradictedClaimIds.has(claim.id)
             const isUnsupported = claim.status === 'unsupported'
+            const isExpanded = expandedClaimId === claim.id
             return (
               <div
                 key={claim.id}
@@ -129,8 +141,16 @@ export default function ClaimGraphView({ claims, edges }: { claims: Claim[]; edg
                       unsupported
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedClaimId(isExpanded ? null : claim.id)}
+                    className="ml-auto text-xs font-medium text-indigo-600 hover:underline"
+                  >
+                    {isExpanded ? 'Hide citations' : 'Show citations'}
+                  </button>
                 </div>
                 <p className="mt-2 text-sm text-slate-900">{claim.text}</p>
+                {isExpanded && <ClaimCitationsPanel encounterId={encounterId} claimId={claim.id} />}
               </div>
             )
           })}

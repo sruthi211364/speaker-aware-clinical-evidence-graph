@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { buildClaimGraph, extractClaims, getClaimGraph, listTranscript } from '../api/encounters'
+import { buildClaimGraph, extractClaims, getClaimGraph, groundClaims, listTranscript } from '../api/encounters'
 import ClaimGraphView from '../components/ClaimGraphView'
 import TranscriptView from '../components/TranscriptView'
 
@@ -40,6 +40,13 @@ export default function EncounterDetailPage() {
     mutationFn: () => buildClaimGraph(encounterId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claim-graph', encounterId] })
+    },
+  })
+
+  const groundMutation = useMutation({
+    mutationFn: () => groundClaims(encounterId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claim-citations', encounterId] })
     },
   })
 
@@ -101,6 +108,14 @@ export default function EncounterDetailPage() {
                 >
                   {buildGraphMutation.isPending ? 'Building...' : 'Build graph'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => groundMutation.mutate()}
+                  disabled={groundMutation.isPending}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {groundMutation.isPending ? 'Grounding...' : 'Ground claims'}
+                </button>
               </div>
             </div>
             {extractMutation.isError && (
@@ -111,9 +126,16 @@ export default function EncounterDetailPage() {
                 {errorDetail(buildGraphMutation.error, 'Graph construction failed.')}
               </p>
             )}
+            {groundMutation.isError && (
+              <p className="mb-3 text-sm text-red-600">{errorDetail(groundMutation.error, 'Grounding failed.')}</p>
+            )}
             {graphQuery.isLoading && <p className="text-sm text-slate-500">Loading claim graph...</p>}
             {graphQuery.data && (
-              <ClaimGraphView claims={graphQuery.data.claims} edges={graphQuery.data.edges} />
+              <ClaimGraphView
+                encounterId={encounterId!}
+                claims={graphQuery.data.claims}
+                edges={graphQuery.data.edges}
+              />
             )}
           </div>
         )}
