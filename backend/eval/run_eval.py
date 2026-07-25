@@ -96,36 +96,52 @@ class ExampleResult:
 
 def _score_extraction(example: GoldenExample, extracted: ClaimExtractionResult) -> tuple[int, int, int]:
     """Matches extracted claims to golden claims by source_segment_index
-    (the definitive identity link back to the transcript), then checks
-    claim_type and text_contains as correctness conditions on the match."""
-    by_segment: dict[int, ExtractedClaim] = {}
+    (the definitive identity link back to the transcript), checking every
+    candidate claim at that segment for a claim_type + text_contains match
+    -- a single segment can legitimately produce more than one claim (e.g.
+    "started on amoxicillin for a sinus infection" extracts both a
+    medication claim and an assessment claim), so only ever checking the
+    first claim found at an index would silently miss a correct match
+    sitting second in the list. A real live run caught this: see git log.
+    """
+    by_segment: dict[int, list[ExtractedClaim]] = {}
     for c in extracted.claims:
-        by_segment.setdefault(c.source_segment_index, c)
+        by_segment.setdefault(c.source_segment_index, []).append(c)
 
     true_positives = 0
     false_negatives = 0
     for gc in example.expected_claims:
-        match = by_segment.get(gc.segment_index)
-        if (
-            match is not None
-            and match.claim_type == gc.claim_type
-            and gc.text_contains.lower() in match.text.lower()
-        ):
+        candidates = by_segment.get(gc.segment_index, [])
+        match = any(
+            c.claim_type == gc.claim_type and gc.text_contains.lower() in c.text.lower() for c in candidates
+        )
+        if match:
             true_positives += 1
         else:
             false_negatives += 1
 
     expected_segments = {gc.segment_index for gc in example.expected_claims}
-    false_positives = sum(1 for seg_idx in by_segment if seg_idx not in expected_segments)
+    false_positives = sum(
+        len(claims) for seg_idx, claims in by_segment.items() if seg_idx not in expected_segments
+    )
     return true_positives, false_negatives, false_positives
 
 
 def _score_status_derivation(example: GoldenExample, policy_check_fn) -> tuple[int, int, list[str]]:
+    """policy_check_fn(gc) may return None to mean "skip this claim" -- e.g.
+    in live mode, a claim extraction never found in the first place can't
+    be fairly status-scored (that failure is already counted once, by
+    _score_extraction, as a missed extraction; scoring it again here as a
+    status mismatch would double-penalize the same miss)."""
     contradicted_indices = set(example.contradiction_pair) if example.contradiction_pair else set()
     correct = 0
+    total = 0
     mismatches = []
     for i, gc in enumerate(example.expected_claims):
         check_result = policy_check_fn(gc)
+        if check_result is None:
+            continue
+        total += 1
         structural_contradiction = i in contradicted_indices
         derived = derive_claim_status(
             safety_passed=not check_result.clinical_safety_flag,
@@ -137,7 +153,20 @@ def _score_status_derivation(example: GoldenExample, policy_check_fn) -> tuple[i
             correct += 1
         else:
             mismatches.append(f"claim[{i}] expected={gc.expected_status} derived={derived.value}")
-    return correct, len(example.expected_claims), mismatches
+    return correct, total, mismatches
+
+
+def _find_matching_extracted_claim(gc: GoldenClaim, extracted: ClaimExtractionResult) -> ExtractedClaim | None:
+    return next(
+        (
+            c
+            for c in extracted.claims
+            if c.source_segment_index == gc.segment_index
+            and c.claim_type == gc.claim_type
+            and gc.text_contains.lower() in c.text.lower()
+        ),
+        None,
+    )
 
 
 def run(mode: str) -> list[ExampleResult]:
@@ -149,10 +178,20 @@ def run(mode: str) -> list[ExampleResult]:
                 for i, s in enumerate(example.segments)
             ]
             extracted = extract_claims_from_transcript(segments)
-            policy_check_fn = lambda gc: run_policy_checks(  # noqa: E731
-                f"{example.segments[gc.segment_index].speaker_role} claim: {gc.text_contains}",
-                [GroundedEvidenceInput(source_type="guideline", source_identifier="none", excerpt="")],
-            )
+
+            def policy_check_fn(gc, _extracted=extracted):
+                # Scores the actual extracted claim's text, not a synthetic
+                # stand-in -- a bare "patient claim: headache" is far less
+                # information-dense than what real extraction produces, and
+                # would make the policy checks look worse than they really
+                # are for no reason connected to the checks themselves.
+                match = _find_matching_extracted_claim(gc, _extracted)
+                if match is None:
+                    return None
+                return run_policy_checks(
+                    match.text,
+                    [GroundedEvidenceInput(source_type="guideline", source_identifier="none", excerpt="")],
+                )
         else:
             extracted = _mock_extract(example)
             policy_check_fn = _mock_policy_check

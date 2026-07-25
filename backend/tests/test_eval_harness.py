@@ -108,3 +108,24 @@ def test_score_status_derivation_catches_a_wrong_expected_status():
     assert correct == 0
     assert total == 1
     assert len(mismatches) == 1
+
+
+def test_score_status_derivation_skips_claims_the_policy_check_fn_returns_none_for():
+    """A None return means "this claim was never extracted, so it can't be
+    fairly status-scored" -- it must reduce the total, not count as a wrong
+    answer (that would double-penalize an already-counted extraction miss)."""
+    example = GoldenExample(
+        name="t",
+        segments=[GoldenSegment("patient", "I have a headache.")],
+        expected_claims=[
+            GoldenClaim(
+                segment_index=0,
+                text_contains="headache",
+                claim_type="symptom",
+                source_type="patient_speech",
+                expected_status="supported",
+            )
+        ],
+    )
+    correct, total, mismatches = _score_status_derivation(example, lambda gc: None)
+    assert (correct, total, mismatches) == (0, 0, [])
