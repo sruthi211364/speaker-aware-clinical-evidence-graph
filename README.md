@@ -1,5 +1,7 @@
 # Speaker-Aware Clinical Evidence Graph & SOAP Note System
 
+[![CI](https://github.com/sruthi211364/speaker-aware-clinical-evidence-graph/actions/workflows/ci.yml/badge.svg)](https://github.com/sruthi211364/speaker-aware-clinical-evidence-graph/actions/workflows/ci.yml)
+
 **A clinical scribe that would rather ask a question than make one up.**
 
 Most AI scribes take a visit transcript and summarize it into a note in one shot. This one refuses to do that. It first builds a graph of every clinical claim made during the encounter — who actually said it, patient or caregiver or the clinician's own exam — and only lets a claim into the note after it survives a policy engine built to catch the three ways AI notes actually go wrong: inventing something nobody said, quietly picking a side when two people disagree, and papering over a gap with a guess instead of a question.
