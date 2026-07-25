@@ -1,47 +1,203 @@
 {
-  "id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
-  "encounter_id": "e38d80ae-ec27-45c5-9595-148fb2cad4c1",
+  "id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+  "encounter_id": "a2dab649-c33b-4611-a9fc-0e3250af5f54",
   "version": 1,
   "status": "under_review",
   "signed_by": null,
   "signed_at": null,
-  "created_at": "2026-07-24T12:33:47.912965",
+  "created_at": "2026-07-25T03:26:59.973930",
   "lines": [
     {
-      "id": "53822115-01fe-4496-be37-9b70930a996e",
-      "note_id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
+      "id": "910e99ff-831a-4e56-8008-ee89a19878b9",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "assessment",
+      "position": 0,
+      "text": "assessment: atypical chest pain, reassuring exam today, cardiac etiology to be ruled out",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "8d6d1a0e-6628-45a2-9cbd-0492b7a88c5e"
+      ]
+    },
+    {
+      "id": "118cca02-97c1-47d8-a26c-399727c50bd7",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "objective",
+      "position": 0,
+      "text": "blood pressure 128/82",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "6841fee0-12f1-45a4-9efd-af7bdf1ff62e"
+      ]
+    },
+    {
+      "id": "fa04cee6-4bbf-4b81-a2ad-2fff0b9a54c9",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "objective",
+      "position": 1,
+      "text": "heart sounds regular without murmurs, lungs clear, no acute distress",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "e8d5ed68-00d1-4c3d-9da5-fe3590f094fd"
+      ]
+    },
+    {
+      "id": "373b2c73-5e62-4826-9822-443fae3115bd",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "plan",
+      "position": 0,
+      "text": "plan: follow up in one week, sooner if pain worsens or shortness of breath develops",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "2da09d73-36a8-41ca-bf5f-c2925e5f8d31"
+      ]
+    },
+    {
+      "id": "767c1020-8124-4896-877b-8e1697b651a5",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "plan",
+      "position": 1,
+      "text": "Patient: patient denies known drug allergies",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "128f7c16-b84c-44ba-a535-582b5f195401"
+      ]
+    },
+    {
+      "id": "843a2965-7b03-4e94-ad94-145d27bf6350",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "plan",
+      "position": 2,
+      "text": "plan: obtain blood work",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "99eedcb0-7c74-48e0-aad1-c1d51ba5d346"
+      ]
+    },
+    {
+      "id": "5967feea-65d7-4c10-aab8-f967432d1311",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "plan",
+      "position": 3,
+      "text": "plan: obtain EKG",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "ed8b1807-cb39-47a9-8be4-d3fe1e634f2d"
+      ]
+    },
+    {
+      "id": "4fc2c525-4654-4578-b5e7-a6f915e376a9",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "plan",
+      "position": 4,
+      "text": "Patient: patient takes lisinopril 10mg once daily",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "e455f59a-08c3-455e-abff-cfb309662682"
+      ]
+    },
+    {
+      "id": "8777c51a-1d44-4486-935c-357d1f471725",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
       "section": "subjective",
       "position": 0,
       "text": "Patient: patient reports chest pain for about three days, described as a dull ache -- vs -- Caregiver: caregiver reports the chest pain has been going on since last week",
       "is_conflict": true,
       "is_rejected": false,
       "claim_ids": [
-        "44f39075-27ef-4e0e-925c-0278c026e8ec",
-        "17fc499f-3da5-46b5-bd39-f09d101969d0"
+        "2f9e3039-d1c4-405f-afca-19576ea35c9c",
+        "979b302b-05f9-4785-b860-fbfa1de6ef5d"
       ]
     },
     {
-      "id": "88fd191a-a751-4b6a-91df-07fdd2732f11",
-      "note_id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
+      "id": "b7459f0b-5447-4014-8b92-eb8d8c70a699",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
       "section": "subjective",
       "position": 1,
       "text": "Patient: patient denies shortness of breath",
       "is_conflict": false,
       "is_rejected": false,
       "claim_ids": [
-        "3c91c9c5-5571-4d1f-803e-b2262e1e9a6e"
+        "36579817-de30-42e5-a08b-0f385123ca03"
       ]
     },
     {
-      "id": "0e891313-d76d-423a-b248-bddd06228585",
-      "note_id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
+      "id": "b51e1501-b739-4ade-b69e-4180c002d39e",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
       "section": "subjective",
       "position": 2,
+      "text": "Patient: patient reports pain centrally located behind the breastbone",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "4be4e918-357d-471f-b942-8d9f28083b40"
+      ]
+    },
+    {
+      "id": "697a0eed-da16-4eac-b5e8-ae83c5a552c5",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "subjective",
+      "position": 3,
+      "text": "Patient: patient denies nausea, diaphoresis, or palpitations",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "4cae5dae-a509-47de-9594-3620a916b55a"
+      ]
+    },
+    {
+      "id": "cab41437-93b1-4fdb-aa73-8318f97b8526",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "subjective",
+      "position": 4,
+      "text": "Patient: patient reports a history of hypertension, on medication for a couple of years",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "87d36977-4808-49fb-b487-2fe62e517332"
+      ]
+    },
+    {
+      "id": "76cde089-77bb-4fee-a982-5414531c24dc",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "subjective",
+      "position": 5,
+      "text": "Patient: patient reports family history of myocardial infarction in father, age of onset fifties",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "8f8f34ca-3c6b-417c-a53e-078db20eb5bf"
+      ]
+    },
+    {
+      "id": "238a59c3-8aa0-4399-b09d-d18577287f49",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "subjective",
+      "position": 6,
+      "text": "Patient: patient rates pain severity as four to five out of ten at its worst",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "e322b81e-f79b-4b20-bb22-bd12d45dc7e5"
+      ]
+    },
+    {
+      "id": "d283329b-f526-4355-aca7-caed7c0edd7c",
+      "note_id": "14b8985a-e5b9-4665-8b9d-801303728ac1",
+      "section": "subjective",
+      "position": 7,
       "text": "Patient: patient denies radiation of the chest pain",
       "is_conflict": false,
       "is_rejected": false,
       "claim_ids": [
-        "51992458-1843-449f-a9d7-876e325e4a87"
+        "e746dd8d-bb9e-4fbd-b5c4-48f0a8b5d029"
       ]
     }
   ]

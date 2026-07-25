@@ -32,9 +32,10 @@ def test_seed_contradiction_encounter_produces_conflict_line(db_session):
     from app.models import Claim, ClaimEdge, SoapNote
 
     claims = db_session.query(Claim).filter_by(encounter_id=encounter.id).all()
-    assert len(claims) == 4
+    assert len(claims) == 17
     statuses = {c.status.value for c in claims}
     assert statuses == {"contradicted", "supported"}
+    assert sum(1 for c in claims if c.status.value == "contradicted") == 2
 
     edges = db_session.query(ClaimEdge).all()
     assert len(edges) == 1
@@ -46,6 +47,9 @@ def test_seed_contradiction_encounter_produces_conflict_line(db_session):
     conflict_lines = [line for line in note.lines if line.is_conflict]
     assert len(conflict_lines) == 1
     assert len(conflict_lines[0].claim_links) == 2
+    # A real encounter touches all four SOAP sections, not just Subjective.
+    sections = {line.section.value for line in note.lines}
+    assert sections == {"subjective", "objective", "assessment", "plan"}
 
 
 def test_seed_safety_flag_encounter_signs_and_exports(db_session):
@@ -61,6 +65,7 @@ def test_seed_safety_flag_encounter_signs_and_exports(db_session):
     from app.models import Claim, MockEhrSubmission, SoapNote
 
     claims = db_session.query(Claim).filter_by(encounter_id=encounter.id).all()
+    assert len(claims) == 11
     unsafe = [c for c in claims if c.status.value == "unsafe"]
     assert len(unsafe) == 1
     assert "amoxicillin" in unsafe[0].text
@@ -68,6 +73,8 @@ def test_seed_safety_flag_encounter_signs_and_exports(db_session):
     note = db_session.query(SoapNote).filter_by(encounter_id=encounter.id).first()
     assert note.status.value == "signed"
     assert note.signed_by == clinician.id
+    sections = {line.section.value for line in note.lines}
+    assert sections == {"subjective", "objective", "assessment", "plan"}
 
     submissions = db_session.query(MockEhrSubmission).filter_by(encounter_id=encounter.id).all()
     assert len(submissions) == 1
@@ -88,10 +95,15 @@ def test_seed_missing_context_encounter_leaves_clarification_unresolved(db_sessi
 
     from app.models import ClarificationQuestion, Claim
 
-    claim = db_session.query(Claim).filter_by(encounter_id=encounter.id).first()
-    assert claim.status.value == "missing_context"
+    claims = db_session.query(Claim).filter_by(encounter_id=encounter.id).all()
+    assert len(claims) == 4
+    missing_context_claims = [c for c in claims if c.status.value == "missing_context"]
+    assert len(missing_context_claims) == 1
+    fatigue_claim = missing_context_claims[0]
+    assert "fatigue" in fatigue_claim.text
+    assert {c.status.value for c in claims if c is not fatigue_claim} == {"supported"}
 
     clarification = db_session.query(ClarificationQuestion).filter_by(encounter_id=encounter.id).first()
     assert clarification is not None
     assert clarification.resolved is False
-    assert clarification.triggering_claim_id == claim.id
+    assert clarification.triggering_claim_id == fatigue_claim.id

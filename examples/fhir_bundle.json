@@ -1,13 +1,13 @@
 {
   "resourceType": "Bundle",
   "type": "collection",
-  "timestamp": "2026-07-24T12:33:48.566014Z",
+  "timestamp": "2026-07-25T03:27:01.332396Z",
   "entry": [
     {
-      "fullUrl": "urn:uuid:89295a8a-4df6-4dbd-9301-5665c1dedcd4",
+      "fullUrl": "urn:uuid:e0b13f74-8d4d-40c5-bff2-661a89b862dd",
       "resource": {
         "resourceType": "DocumentReference",
-        "id": "89295a8a-4df6-4dbd-9301-5665c1dedcd4",
+        "id": "e0b13f74-8d4d-40c5-bff2-661a89b862dd",
         "status": "current",
         "type": {
           "coding": [
@@ -21,7 +21,7 @@
         "subject": {
           "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
         },
-        "date": "2026-07-24T12:33:48.566014Z",
+        "date": "2026-07-25T03:27:01.332396Z",
         "author": [
           {
             "reference": "Practitioner/d9f4b204-9b8a-4e72-a84a-139c062e9480"
@@ -31,17 +31,17 @@
           {
             "attachment": {
               "contentType": "application/fhir+json",
-              "data": "eyJyZXNvdXJjZVR5cGUiOiJDb21wb3NpdGlvbiIsImlkIjoiOWMwMDM1ZmMtN2E4MC00ZWMwLThhZDItNGMyOTA2NTFlOTFiIiwic3RhdHVzIjoiZmluYWwiLCJ0eXBlIjp7ImNvZGluZyI6W3sic3lzdGVtIjoiaHR0cDovL2xvaW5jLm9yZyIsImNvZGUiOiIzNDEwOS05IiwiZGlzcGxheSI6Ik5vdGUifV19LCJzdWJqZWN0Ijp7InJlZmVyZW5jZSI6IlBhdGllbnQvMmFlMDRkYzgtNmYwYy00MTA2LTgyNDUtNWMwMzFiNDEzYmVkIn0sImRhdGUiOiIyMDI2LTA3LTI0VDEyOjMzOjQ4LjU2NjAxNFoiLCJhdXRob3IiOlt7InJlZmVyZW5jZSI6IlByYWN0aXRpb25lci9kOWY0YjIwNC05YjhhLTRlNzItYTg0YS0xMzljMDYyZTk0ODAifV0sInRpdGxlIjoiU09BUCBOb3RlIC0tIEVuY291bnRlciBmYTFhYWQxNy01MDNiLTQxNjUtYjQxMy1lYzAwYzRhZTUzY2IgKHYxKSIsInNlY3Rpb24iOlt7InRpdGxlIjoiUGxhbiIsInRleHQiOnsic3RhdHVzIjoiZ2VuZXJhdGVkIiwiZGl2IjoiPGRpdiB4bWxucz1cImh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWxcIj5QYXRpZW50OiBwYXRpZW50IHJlcG9ydHMgc2Vhc29uYWwgYWxsZXJnaWVzLCB3ZWxsIGNvbnRyb2xsZWQgd2l0aCBsb3JhdGFkaW5lXG5kb2N1bWVudGVkIHBlbmljaWxsaW4gYWxsZXJneVxuY2xpbmljaWFuIHByZXNjcmliZXMgYW1veGljaWxsaW4gNTAwbWcgdGhyZWUgdGltZXMgZGFpbHk8L2Rpdj4ifSwiZW50cnkiOlt7InJlZmVyZW5jZSI6InVybjp1dWlkOjJhM2VkOTc1LTc2YzEtNGRjOS04MThmLTIxMGI5MWI0ZmM2NiJ9LHsicmVmZXJlbmNlIjoidXJuOnV1aWQ6ZDc0NzVkNjEtNDNlYy00MmFlLTg3OTUtOWZiM2ZhMjMzM2JiIn0seyJyZWZlcmVuY2UiOiJ1cm46dXVpZDpiYWQ5Yjg2Ni0xNWNjLTRmYTktYTUwOC02ZmRlNzE5YTZlMjMifV19XX0="
+              "data": "eyJyZXNvdXJjZVR5cGUiOiJDb21wb3NpdGlvbiIsImlkIjoiZGM2ZWZlODEtYmQyMS00ZjkyLWJhNzUtMTc2MGYzMWZkMTdlIiwic3RhdHVzIjoiZmluYWwiLCJ0eXBlIjp7ImNvZGluZyI6W3sic3lzdGVtIjoiaHR0cDovL2xvaW5jLm9yZyIsImNvZGUiOiIzNDEwOS05IiwiZGlzcGxheSI6Ik5vdGUifV19LCJzdWJqZWN0Ijp7InJlZmVyZW5jZSI6IlBhdGllbnQvMmFlMDRkYzgtNmYwYy00MTA2LTgyNDUtNWMwMzFiNDEzYmVkIn0sImRhdGUiOiIyMDI2LTA3LTI1VDAzOjI3OjAxLjMzMjM5NloiLCJhdXRob3IiOlt7InJlZmVyZW5jZSI6IlByYWN0aXRpb25lci9kOWY0YjIwNC05YjhhLTRlNzItYTg0YS0xMzljMDYyZTk0ODAifV0sInRpdGxlIjoiU09BUCBOb3RlIC0tIEVuY291bnRlciA0NjZkZDhmMS1mODM0LTQ0ZjItYjQ4ZS0zYWRlNGEwNjgzMTAgKHYxKSIsInNlY3Rpb24iOlt7InRpdGxlIjoiU3ViamVjdGl2ZSIsInRleHQiOnsic3RhdHVzIjoiZ2VuZXJhdGVkIiwiZGl2IjoiPGRpdiB4bWxucz1cImh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWxcIj5QYXRpZW50OiBwYXRpZW50IHJlcG9ydHMgbG93LWdyYWRlIGZldmVyLCBhcm91bmQgMTAwLjUgRiBhdCBob21lXG5QYXRpZW50OiBwYXRpZW50IHJlcG9ydHMgZmFjaWFsIHByZXNzdXJlIGFuZCB0aGljayBuYXNhbCBkcmFpbmFnZSBmb3IgYWJvdXQgYSB3ZWVrXG5QYXRpZW50OiBwYXRpZW50IHJlcG9ydHMgbmlnaHR0aW1lIGNvdWdoIHdpdGggcG9zdC1uYXNhbCBkcmlwXG5QYXRpZW50OiBwYXRpZW50IHJlcG9ydHMgZmFjaWFsIHByZXNzdXJlIHdvcnNlIHdoZW4gbGVhbmluZyBmb3J3YXJkLCBsb2NhbGl6ZWQgdG8gdGhlIGNoZWVrczwvZGl2PiJ9LCJlbnRyeSI6W3sicmVmZXJlbmNlIjoidXJuOnV1aWQ6MjI4YmRiY2QtZDhkYS00NTNkLTkyNmQtZTY3ZDAxNjUxZmRjIn0seyJyZWZlcmVuY2UiOiJ1cm46dXVpZDplODM3M2MzOC1mN2Y4LTQ0MjQtOTBjMi0zZTIwNzVlZDQwMjcifSx7InJlZmVyZW5jZSI6InVybjp1dWlkOmFjYmYyMzIwLTdkNTgtNGUwZi1iODdmLTMyYTUwZWI3OWNmMyJ9LHsicmVmZXJlbmNlIjoidXJuOnV1aWQ6OTU4MTI1M2YtZTliNC00N2UzLTgyNTMtZWY4ODhhMWI2ODdjIn1dfSx7InRpdGxlIjoiT2JqZWN0aXZlIiwidGV4dCI6eyJzdGF0dXMiOiJnZW5lcmF0ZWQiLCJkaXYiOiI8ZGl2IHhtbG5zPVwiaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbFwiPnRlbmRlcm5lc3Mgb3ZlciBtYXhpbGxhcnkgc2ludXNlcywgZXJ5dGhlbWF0b3VzIG9yb3BoYXJ5bngsIGx1bmdzIGNsZWFyPC9kaXY+In0sImVudHJ5IjpbeyJyZWZlcmVuY2UiOiJ1cm46dXVpZDo5MTE1MzM4NS05MDE4LTQ2YzYtOWM3Ny1jZjI1MjJhZjE2OGEifV19LHsidGl0bGUiOiJBc3Nlc3NtZW50IiwidGV4dCI6eyJzdGF0dXMiOiJnZW5lcmF0ZWQiLCJkaXYiOiI8ZGl2IHhtbG5zPVwiaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbFwiPmFzc2Vzc21lbnQ6IGFjdXRlIHNpbnVzaXRpczwvZGl2PiJ9LCJlbnRyeSI6W3sicmVmZXJlbmNlIjoidXJuOnV1aWQ6MTVkOWYxNDYtMWRiZi00NzJiLWI3MmMtMjI5MWY2NzRjNDFkIn1dfSx7InRpdGxlIjoiUGxhbiIsInRleHQiOnsic3RhdHVzIjoiZ2VuZXJhdGVkIiwiZGl2IjoiPGRpdiB4bWxucz1cImh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWxcIj5wbGFuOiBmb2xsb3cgdXAgaW4gb25lIHdlZWsgaWYgbm90IGltcHJvdmluZywgc29vbmVyIGlmIGhpZ2ggZmV2ZXIgZGV2ZWxvcHNcbnBsYW46IHNhbGluZSBuYXNhbCByaW5zZSBhbmQgb3Zlci10aGUtY291bnRlciBkZWNvbmdlc3RhbnQgZm9yIHN5bXB0b21hdGljIHJlbGllZlxuY2xpbmljaWFuIHByZXNjcmliZXMgYW1veGljaWxsaW4gNTAwbWcgdGhyZWUgdGltZXMgZGFpbHkgZm9yIHRlbiBkYXlzXG5QYXRpZW50OiBwYXRpZW50IHJlcG9ydHMgc2Vhc29uYWwgYWxsZXJnaWVzLCB3ZWxsIGNvbnRyb2xsZWQgd2l0aCBsb3JhdGFkaW5lXG5kb2N1bWVudGVkIHBlbmljaWxsaW4gYWxsZXJneTwvZGl2PiJ9LCJlbnRyeSI6W3sicmVmZXJlbmNlIjoidXJuOnV1aWQ6N2Q2YmNmNzQtN2FhNi00MGMwLWI1ZWQtZDRkYzhjNTk3YTNmIn0seyJyZWZlcmVuY2UiOiJ1cm46dXVpZDpjNDgzNmQ0NS00YTk0LTRhYTItYjMxOS00OTY5Y2FhNjg5OTUifSx7InJlZmVyZW5jZSI6InVybjp1dWlkOmViNzU1OTUyLTg1ZWEtNDY4OS1hMzJkLTQ3NzI4MWE1YzNiZiJ9LHsicmVmZXJlbmNlIjoidXJuOnV1aWQ6ZDFlZGM3MGUtZTU4Yi00NWEwLWI2NGUtMTcxYzk5YmEzMjE2In0seyJyZWZlcmVuY2UiOiJ1cm46dXVpZDpjNDhmMTJiNC1hMjUzLTQ3MDktYjkxMy1mNDczZWI1MzgyNzcifV19XX0="
             }
           }
         ]
       }
     },
     {
-      "fullUrl": "urn:uuid:9c0035fc-7a80-4ec0-8ad2-4c290651e91b",
+      "fullUrl": "urn:uuid:dc6efe81-bd21-4f92-ba75-1760f31fd17e",
       "resource": {
         "resourceType": "Composition",
-        "id": "9c0035fc-7a80-4ec0-8ad2-4c290651e91b",
+        "id": "dc6efe81-bd21-4f92-ba75-1760f31fd17e",
         "status": "final",
         "type": {
           "coding": [
@@ -55,29 +55,80 @@
         "subject": {
           "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
         },
-        "date": "2026-07-24T12:33:48.566014Z",
+        "date": "2026-07-25T03:27:01.332396Z",
         "author": [
           {
             "reference": "Practitioner/d9f4b204-9b8a-4e72-a84a-139c062e9480"
           }
         ],
-        "title": "SOAP Note -- Encounter fa1aad17-503b-4165-b413-ec00c4ae53cb (v1)",
+        "title": "SOAP Note -- Encounter 466dd8f1-f834-44f2-b48e-3ade4a068310 (v1)",
         "section": [
+          {
+            "title": "Subjective",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Patient: patient reports low-grade fever, around 100.5 F at home\nPatient: patient reports facial pressure and thick nasal drainage for about a week\nPatient: patient reports nighttime cough with post-nasal drip\nPatient: patient reports facial pressure worse when leaning forward, localized to the cheeks</div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:228bdbcd-d8da-453d-926d-e67d01651fdc"
+              },
+              {
+                "reference": "urn:uuid:e8373c38-f7f8-4424-90c2-3e2075ed4027"
+              },
+              {
+                "reference": "urn:uuid:acbf2320-7d58-4e0f-b87f-32a50eb79cf3"
+              },
+              {
+                "reference": "urn:uuid:9581253f-e9b4-47e3-8253-ef888a1b687c"
+              }
+            ]
+          },
+          {
+            "title": "Objective",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">tenderness over maxillary sinuses, erythematous oropharynx, lungs clear</div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:91153385-9018-46c6-9c77-cf2522af168a"
+              }
+            ]
+          },
+          {
+            "title": "Assessment",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">assessment: acute sinusitis</div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:15d9f146-1dbf-472b-b72c-2291f674c41d"
+              }
+            ]
+          },
           {
             "title": "Plan",
             "text": {
               "status": "generated",
-              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Patient: patient reports seasonal allergies, well controlled with loratadine\ndocumented penicillin allergy\nclinician prescribes amoxicillin 500mg three times daily</div>"
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">plan: follow up in one week if not improving, sooner if high fever develops\nplan: saline nasal rinse and over-the-counter decongestant for symptomatic relief\nclinician prescribes amoxicillin 500mg three times daily for ten days\nPatient: patient reports seasonal allergies, well controlled with loratadine\ndocumented penicillin allergy</div>"
             },
             "entry": [
               {
-                "reference": "urn:uuid:2a3ed975-76c1-4dc9-818f-210b91b4fc66"
+                "reference": "urn:uuid:7d6bcf74-7aa6-40c0-b5ed-d4dc8c597a3f"
               },
               {
-                "reference": "urn:uuid:d7475d61-43ec-42ae-8795-9fb3fa2333bb"
+                "reference": "urn:uuid:c4836d45-4a94-4aa2-b319-4969caa68995"
               },
               {
-                "reference": "urn:uuid:bad9b866-15cc-4fa9-a508-6fde719a6e23"
+                "reference": "urn:uuid:eb755952-85ea-4689-a32d-477281a5c3bf"
+              },
+              {
+                "reference": "urn:uuid:d1edc70e-e58b-45a0-b64e-171c99ba3216"
+              },
+              {
+                "reference": "urn:uuid:c48f12b4-a253-4709-b913-f473eb538277"
               }
             ]
           }
@@ -85,10 +136,192 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:2a3ed975-76c1-4dc9-818f-210b91b4fc66",
+      "fullUrl": "urn:uuid:228bdbcd-d8da-453d-926d-e67d01651fdc",
       "resource": {
         "resourceType": "Observation",
-        "id": "2a3ed975-76c1-4dc9-818f-210b91b4fc66",
+        "id": "228bdbcd-d8da-453d-926d-e67d01651fdc",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "267036007",
+              "display": "Dyspnea (shortness of breath)"
+            }
+          ],
+          "text": "Patient: patient reports low-grade fever, around 100.5 F at home"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "Patient: patient reports low-grade fever, around 100.5 F at home"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e8373c38-f7f8-4424-90c2-3e2075ed4027",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "e8373c38-f7f8-4424-90c2-3e2075ed4027",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "267036007",
+              "display": "Dyspnea (shortness of breath)"
+            }
+          ],
+          "text": "Patient: patient reports facial pressure and thick nasal drainage for about a week"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "Patient: patient reports facial pressure and thick nasal drainage for about a week"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:acbf2320-7d58-4e0f-b87f-32a50eb79cf3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "acbf2320-7d58-4e0f-b87f-32a50eb79cf3",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "267036007",
+              "display": "Dyspnea (shortness of breath)"
+            }
+          ],
+          "text": "Patient: patient reports nighttime cough with post-nasal drip"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "Patient: patient reports nighttime cough with post-nasal drip"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9581253f-e9b4-47e3-8253-ef888a1b687c",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "9581253f-e9b4-47e3-8253-ef888a1b687c",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "267036007",
+              "display": "Dyspnea (shortness of breath)"
+            }
+          ],
+          "text": "Patient: patient reports facial pressure worse when leaning forward, localized to the cheeks"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "Patient: patient reports facial pressure worse when leaning forward, localized to the cheeks"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:91153385-9018-46c6-9c77-cf2522af168a",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "91153385-9018-46c6-9c77-cf2522af168a",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "29857009",
+              "display": "Chest pain"
+            }
+          ],
+          "text": "tenderness over maxillary sinuses, erythematous oropharynx, lungs clear"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "tenderness over maxillary sinuses, erythematous oropharynx, lungs clear"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:15d9f146-1dbf-472b-b72c-2291f674c41d",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "15d9f146-1dbf-472b-b72c-2291f674c41d",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "267036007",
+              "display": "Dyspnea (shortness of breath)"
+            }
+          ],
+          "text": "assessment: acute sinusitis"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:7d6bcf74-7aa6-40c0-b5ed-d4dc8c597a3f",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "7d6bcf74-7aa6-40c0-b5ed-d4dc8c597a3f",
+        "status": "final",
+        "code": {
+          "text": "plan: follow up in one week if not improving, sooner if high fever develops"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "plan: follow up in one week if not improving, sooner if high fever develops"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c4836d45-4a94-4aa2-b319-4969caa68995",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "c4836d45-4a94-4aa2-b319-4969caa68995",
+        "status": "final",
+        "code": {
+          "text": "plan: saline nasal rinse and over-the-counter decongestant for symptomatic relief"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "plan: saline nasal rinse and over-the-counter decongestant for symptomatic relief"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:eb755952-85ea-4689-a32d-477281a5c3bf",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "eb755952-85ea-4689-a32d-477281a5c3bf",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "723",
+              "display": "Amoxicillin"
+            }
+          ],
+          "text": "clinician prescribes amoxicillin 500mg three times daily for ten days"
+        },
+        "subject": {
+          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
+        },
+        "valueString": "clinician prescribes amoxicillin 500mg three times daily for ten days"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:d1edc70e-e58b-45a0-b64e-171c99ba3216",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "d1edc70e-e58b-45a0-b64e-171c99ba3216",
         "status": "final",
         "code": {
           "coding": [
@@ -107,10 +340,10 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:d7475d61-43ec-42ae-8795-9fb3fa2333bb",
+      "fullUrl": "urn:uuid:c48f12b4-a253-4709-b913-f473eb538277",
       "resource": {
         "resourceType": "Observation",
-        "id": "d7475d61-43ec-42ae-8795-9fb3fa2333bb",
+        "id": "c48f12b4-a253-4709-b913-f473eb538277",
         "status": "final",
         "code": {
           "coding": [
@@ -126,28 +359,6 @@
           "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
         },
         "valueString": "documented penicillin allergy"
-      }
-    },
-    {
-      "fullUrl": "urn:uuid:bad9b866-15cc-4fa9-a508-6fde719a6e23",
-      "resource": {
-        "resourceType": "Observation",
-        "id": "bad9b866-15cc-4fa9-a508-6fde719a6e23",
-        "status": "final",
-        "code": {
-          "coding": [
-            {
-              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-              "code": "723",
-              "display": "Amoxicillin"
-            }
-          ],
-          "text": "clinician prescribes amoxicillin 500mg three times daily"
-        },
-        "subject": {
-          "reference": "Patient/2ae04dc8-6f0c-4106-8245-5c031b413bed"
-        },
-        "valueString": "clinician prescribes amoxicillin 500mg three times daily"
       }
     }
   ]
