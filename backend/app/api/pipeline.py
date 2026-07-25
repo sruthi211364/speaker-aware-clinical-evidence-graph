@@ -5,7 +5,7 @@ from app.auth import require_auth
 from app.models import Encounter
 from app.pipeline.graph import get_pipeline_status, get_pipeline_trace, resume_pipeline_review, run_pipeline
 from app.schemas.policy import PipelineRunResult, PipelineTraceEntry
-from app.services.claude_service import ClaudeNotConfiguredError
+from app.services.claude_service import ClaudeNotConfiguredError, ClaudeRequestError
 
 router = APIRouter(
     prefix="/encounters/{encounter_id}/pipeline",
@@ -28,6 +28,8 @@ def run_pipeline_endpoint(encounter: Encounter = Depends(get_encounter_or_404)):
         result = run_pipeline(str(encounter.id))
     except ClaudeNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+    except ClaudeRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
     return PipelineRunResult(encounter_id=str(encounter.id), **{k: v for k, v in result.items() if k != "encounter_id"})
 
 

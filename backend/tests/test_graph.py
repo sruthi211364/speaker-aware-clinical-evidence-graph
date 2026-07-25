@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from app.services.claude_service import EdgeExtractionResult, ExtractedEdge
+from app.services.claude_service import ClaudeRequestError, EdgeExtractionResult, ExtractedEdge
 
 
 def _seed_encounter_with_two_claims(client):
@@ -110,3 +110,16 @@ def test_build_claim_graph_with_fewer_than_two_claims_skips_claude(client):
     assert resp.status_code == 201
     assert resp.json() == []
     mock_gen.assert_not_called()
+
+
+def test_build_claim_graph_surfaces_a_failed_claude_request_as_502(client):
+    encounter = _seed_encounter_with_two_claims(client)
+
+    with patch(
+        "app.pipeline.steps.generate_claim_edges",
+        side_effect=ClaudeRequestError("Edge generation request to Claude failed: rate limited"),
+    ):
+        resp = client.post(f"/encounters/{encounter['id']}/claim-graph/build")
+
+    assert resp.status_code == 502
+    assert "rate limited" in resp.json()["detail"]

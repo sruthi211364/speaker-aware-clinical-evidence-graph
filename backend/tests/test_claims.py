@@ -1,12 +1,35 @@
 from unittest.mock import patch
 
-from app.services.claude_service import ClaimExtractionResult, ExtractedClaim
+from app.services.claude_service import ClaimExtractionResult, ClaudeRequestError, ExtractedClaim
 
 
 def _seed_encounter(client):
     resp = client.post("/encounters", json={})
     assert resp.status_code == 201
     return resp.json()
+
+
+def test_extract_claims_surfaces_a_failed_claude_request_as_502(client):
+    """A configured key whose request still fails -- e.g. an exhausted
+    credit balance -- should surface a clear 502 with the real reason, not
+    an opaque 500 with no detail (what "Extraction failed." looked like
+    before this was fixed)."""
+    encounter = _seed_encounter(client)
+    client.post(
+        f"/encounters/{encounter['id']}/transcript",
+        json={"segments": [{"speaker_role": "patient", "start_ms": 0, "end_ms": 1000, "text": "My chest hurts."}]},
+    )
+
+    with patch(
+        "app.pipeline.steps.extract_claims_from_transcript",
+        side_effect=ClaudeRequestError(
+            "Claim extraction request to Claude failed: Your credit balance is too low"
+        ),
+    ):
+        resp = client.post(f"/encounters/{encounter['id']}/claims/extract")
+
+    assert resp.status_code == 502
+    assert "credit balance is too low" in resp.json()["detail"]
 
 
 def test_ehr_context_ingest_creates_claims_without_calling_claude(client):

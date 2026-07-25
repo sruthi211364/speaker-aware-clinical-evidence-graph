@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from app.services.claude_service import PolicyCheckResult
+from app.services.claude_service import ClaudeRequestError, PolicyCheckResult
 
 
 def _seed_encounter_with_claim(client, text="patient reports chest pain", claim_type="symptom", record_id="a"):
@@ -112,3 +112,16 @@ def test_policy_check_is_idempotent(client):
     assert resp2.status_code == 201
     assert len(resp2.json()) == 5
     mock_checks.assert_called_once()
+
+
+def test_policy_check_surfaces_a_failed_claude_request_as_502(client):
+    encounter = _seed_encounter_with_claim(client)
+
+    with patch(
+        "app.services.policy_engine.run_policy_checks",
+        side_effect=ClaudeRequestError("Policy check request to Claude failed: credit balance too low"),
+    ):
+        resp = client.post(f"/encounters/{encounter['id']}/claims/policy-check")
+
+    assert resp.status_code == 502
+    assert "credit balance too low" in resp.json()["detail"]

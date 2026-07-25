@@ -148,6 +148,15 @@ class ClaudeNotConfiguredError(RuntimeError):
     as an opaque 500."""
 
 
+class ClaudeRequestError(RuntimeError):
+    """Raised when a configured client's request to Claude itself fails --
+    insufficient credit balance, rate limiting, an auth rejection, a
+    transient API error. Callers should surface this as a clean 502 with the
+    underlying message, not let it bubble up as an opaque 500: a generic
+    "Extraction failed." with no further detail tells the caller nothing
+    about why, or what to do about it."""
+
+
 _EXTRACTION_SYSTEM_PROMPT = """You are a clinical claim extraction engine. You will be given a numbered \
 list of transcript segments from a clinical encounter, each labeled with the \
 speaker's role (patient, caregiver, or clinician) and the segment's index.
@@ -259,14 +268,17 @@ def extract_claims_from_transcript(
 
     transcript_text = "\n".join(f"[{s.index}] ({s.speaker_role}): {s.text}" for s in segments)
 
-    response = client.messages.parse(
-        model=settings.claude_model,
-        max_tokens=4096,
-        thinking={"type": "disabled"},
-        system=_EXTRACTION_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"Transcript segments:\n{transcript_text}"}],
-        output_format=ClaimExtractionResult,
-    )
+    try:
+        response = client.messages.parse(
+            model=settings.claude_model,
+            max_tokens=4096,
+            thinking={"type": "disabled"},
+            system=_EXTRACTION_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": f"Transcript segments:\n{transcript_text}"}],
+            output_format=ClaimExtractionResult,
+        )
+    except anthropic.APIError as exc:
+        raise ClaudeRequestError(f"Claim extraction request to Claude failed: {exc}") from exc
     result = response.parsed_output
 
     valid_indices = {s.index for s in segments}
@@ -290,14 +302,17 @@ def generate_claim_edges(claims: list[ClaimForEdgeInput]) -> EdgeExtractionResul
         f"[{c.index}] ({c.claim_type} / {c.source_type}): {c.text}" for c in claims
     )
 
-    response = client.messages.parse(
-        model=settings.claude_model,
-        max_tokens=4096,
-        thinking={"type": "disabled"},
-        system=_EDGE_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"Claims:\n{claims_text}"}],
-        output_format=EdgeExtractionResult,
-    )
+    try:
+        response = client.messages.parse(
+            model=settings.claude_model,
+            max_tokens=4096,
+            thinking={"type": "disabled"},
+            system=_EDGE_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": f"Claims:\n{claims_text}"}],
+            output_format=EdgeExtractionResult,
+        )
+    except anthropic.APIError as exc:
+        raise ClaudeRequestError(f"Edge generation request to Claude failed: {exc}") from exc
     result = response.parsed_output
 
     valid_indices = {c.index for c in claims}
@@ -329,12 +344,15 @@ def run_policy_checks(claim_text: str, evidence: list[GroundedEvidenceInput]) ->
 
     prompt = f"Claim: {claim_text}\n\nRetrieved evidence:\n{evidence_text}"
 
-    response = client.messages.parse(
-        model=settings.claude_model,
-        max_tokens=2048,
-        thinking={"type": "disabled"},
-        system=_POLICY_CHECK_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
-        output_format=PolicyCheckResult,
-    )
+    try:
+        response = client.messages.parse(
+            model=settings.claude_model,
+            max_tokens=2048,
+            thinking={"type": "disabled"},
+            system=_POLICY_CHECK_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+            output_format=PolicyCheckResult,
+        )
+    except anthropic.APIError as exc:
+        raise ClaudeRequestError(f"Policy check request to Claude failed: {exc}") from exc
     return response.parsed_output

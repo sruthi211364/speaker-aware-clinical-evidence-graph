@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from app.services.claude_service import ClaudeNotConfiguredError
+from app.services.claude_service import ClaudeNotConfiguredError, ClaudeRequestError
 
 # The LangGraph pipeline runner uses its own DB sessions (SessionLocal) and a
 # real-Postgres-only checkpointer (see app/pipeline/checkpointer.py), so it
@@ -39,6 +39,19 @@ def test_run_pipeline_surfaces_missing_api_key_as_503(client):
         resp = client.post(f"/encounters/{encounter['id']}/pipeline/run")
 
     assert resp.status_code == 503
+
+
+def test_run_pipeline_surfaces_claude_request_error_as_502(client):
+    encounter = client.post("/encounters", json={}).json()
+
+    with patch(
+        "app.api.pipeline.run_pipeline",
+        side_effect=ClaudeRequestError("Claim extraction request to Claude failed: credit balance too low"),
+    ):
+        resp = client.post(f"/encounters/{encounter['id']}/pipeline/run")
+
+    assert resp.status_code == 502
+    assert "credit balance too low" in resp.json()["detail"]
 
 
 def test_get_pipeline_trace_returns_node_history(client):

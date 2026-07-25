@@ -8,7 +8,7 @@ from app.models import Claim, Encounter
 from app.models.enums import ClaimStatus, SourceType
 from app.pipeline.steps import extract_claims_step
 from app.schemas.claim import ClaimRead, EhrContextIngestRequest
-from app.services.claude_service import ClaudeNotConfiguredError
+from app.services.claude_service import ClaudeNotConfiguredError, ClaudeRequestError
 
 router = APIRouter(
     prefix="/encounters/{encounter_id}",
@@ -29,6 +29,8 @@ def extract_claims(
         return extract_claims_step(db, encounter)
     except ClaudeNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+    except ClaudeRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @router.get("/claims", response_model=list[ClaimRead])

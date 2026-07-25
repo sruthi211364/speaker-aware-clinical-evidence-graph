@@ -7,7 +7,7 @@ from app.db import get_db
 from app.models import Claim, ClaimEdge, Encounter
 from app.pipeline.steps import build_graph_step
 from app.schemas.claim_edge import ClaimEdgeRead, ClaimGraphResponse
-from app.services.claude_service import ClaudeNotConfiguredError
+from app.services.claude_service import ClaudeNotConfiguredError, ClaudeRequestError
 
 router = APIRouter(
     prefix="/encounters/{encounter_id}/claim-graph",
@@ -29,6 +29,8 @@ def build_claim_graph(
         return build_graph_step(db, encounter)
     except ClaudeNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+    except ClaudeRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @router.get("", response_model=ClaimGraphResponse)

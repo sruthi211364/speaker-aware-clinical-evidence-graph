@@ -7,7 +7,7 @@ from app.db import get_db
 from app.models import Claim, Encounter, PolicyVerdict
 from app.pipeline.steps import run_policy_engine_step
 from app.schemas.policy import PolicyVerdictRead
-from app.services.claude_service import ClaudeNotConfiguredError
+from app.services.claude_service import ClaudeNotConfiguredError, ClaudeRequestError
 
 router = APIRouter(
     prefix="/encounters/{encounter_id}",
@@ -32,6 +32,8 @@ def run_policy_check(
         return run_policy_engine_step(db, encounter)
     except ClaudeNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+    except ClaudeRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @router.get("/policy-verdicts", response_model=list[PolicyVerdictRead])
