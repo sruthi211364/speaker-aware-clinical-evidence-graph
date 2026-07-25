@@ -1,46 +1,25 @@
 # Speaker-Aware Clinical Evidence Graph & SOAP Note System
 
-A clinical documentation system that does not summarize a visit transcript
-into a note. Instead it builds a **speaker-aware clinical evidence graph**
-during the encounter, decomposes the conversation into atomic clinical
-claims, links every claim to its source (patient speech, caregiver report,
-clinician observation, EHR data, device data, or explicit clinician
-judgment), and compiles the graph into a structured SOAP note only after a
-**zero-trust policy engine** has checked every claim for support,
-contradiction, temporal ambiguity, missing context, and clinical safety.
+**A clinical scribe that would rather ask a question than make one up.**
 
-Unsupported claims never reach the note. Conflicting accounts from different
-speakers stay visible side by side instead of being blended into one
-statement. Missing information becomes a targeted clarification question for
-the clinician, not a silently generated assumption. Every clinician edit is
-stored as a versioned attestation, so there is a full lineage from raw
-encounter to signed record.
+Most AI scribes take a visit transcript and summarize it into a note in one shot. This one refuses to do that. It first builds a graph of every clinical claim made during the encounter — who actually said it, patient or caregiver or the clinician's own exam — and only lets a claim into the note after it survives a policy engine built to catch the three ways AI notes actually go wrong: inventing something nobody said, quietly picking a side when two people disagree, and papering over a gap with a guess instead of a question.
 
-This is a portfolio/prototype build, developed iteratively phase by phase.
-Current status: **Phase 10 of 10 complete** (see [Build phases](#build-phases)).
+## What it actually does
 
-## Why this exists
+- **Every claim has a source.** Patient speech, caregiver report, clinician observation, EHR data, device data — nothing floats free of where it came from.
+- **Five checks before anything reaches a note**: is it supported, does it contradict something else, is the timing vague, is required context missing, is it clinically unsafe.
+- **Contradictions stay contradictions.** Patient says three days, caregiver says a week — both show up side by side, not blended into one confident sentence.
+- **Gaps become questions.** Missing context generates a clarification for the clinician instead of a silent assumption.
+- **Every edit is on the record.** Accept, edit, reject, sign — each one is a timestamped attestation, giving a full paper trail from raw transcript to signed note.
+- **It actually runs.** Docker Compose, Postgres + pgvector, a real LangGraph pipeline with a genuine human-in-the-loop pause, FHIR export, 64 passing tests. Not a slide deck.
 
-Commercial ambient scribes (Abridge, Nuance DAX, Nabla, Suki, Freed, ...)
-compete on transcription accuracy and time saved. None of them expose a
-claim-level, source-linked evidence graph, and none structurally block an
-unsupported statement before it reaches the note. By early 2026 this gap has
-produced real, documented failures: fabricated exam findings, hallucinated
-history, and a wave of malpractice claims tied to AI-generated note errors --
-"draft only" labeling hasn't been enough, because clinicians reviewing under
-time pressure still miss subtle inaccuracies.
+## Why bother
 
-This project's bet: don't rely on a rushed human review to catch a
-hallucination. Block unsupported claims structurally, surface contradictions
-instead of resolving them silently, and turn missing information into a
-question instead of a guess. This combines two things the market and the
-research literature usually keep separate: a **live, speaker-attributed**
-evidence graph (most provenance-graph work targets retrospective or
-literature-backed reasoning, not a real-time multi-speaker encounter), and a
-**policy engine grounded in retrieval** rather than the model's unaided
-judgment.
+Commercial ambient scribes (Abridge, Nuance DAX, Nabla, Suki, Freed, and the rest) compete on transcription accuracy and time saved. None of them expose a claim-level, source-linked evidence graph, and none structurally block an unsupported statement before it reaches the note. By early 2026 that gap had produced real, documented consequences: fabricated exam findings, hallucinated history, a wave of malpractice claims tied to AI-generated note errors. "Draft only" labeling hasn't been enough, because a clinician reviewing under time pressure still misses subtle inaccuracies.
 
-## Architecture
+The bet here is simple: don't rely on a rushed human review to catch a hallucination. Block unsupported claims structurally, surface contradictions instead of resolving them silently, and turn missing information into a question instead of a guess. That combines two things the market and the research literature usually keep separate — a *live, speaker-attributed* evidence graph (most provenance-graph work is retrospective or literature-backed, not a real-time multi-speaker encounter), and a policy engine grounded in retrieval rather than the model's unaided judgment.
+
+## How it works
 
 ```
 Ingestion → Claim extraction → Graph construction → RAG grounding
@@ -48,114 +27,76 @@ Ingestion → Claim extraction → Graph construction → RAG grounding
    → SOAP compilation → Clinician review (human-in-the-loop) → Sign → FHIR export
 ```
 
-From Phase 5 onward this pipeline is a **LangGraph** state graph
-(`backend/app/pipeline/graph.py`): `ingest -> extract_claims -> build_graph
--> ground_claims -> run_policy_engine -> normalize_terminology ->
-compile_soap_note -> clinician_review`, checkpointed to Postgres per
-encounter (`thread_id = encounter_id`) via `PostgresSaver`. Every node
-transition is persisted, so a run can be inspected step by step after the
-fact -- `GET /encounters/{id}/pipeline/trace` and the "Audit & Lineage" tab
-expose this. Each node is a thin wrapper around the same step functions
-(`backend/app/pipeline/steps.py`) that the individual per-stage REST
-endpoints call directly, so there is exactly one implementation of each
-stage regardless of which entry point triggers it.
+The whole thing is a **LangGraph** state graph (`backend/app/pipeline/graph.py`), checkpointed to Postgres per encounter, so a run can be replayed node by node after the fact — `GET /encounters/{id}/pipeline/trace` and the "Audit & Lineage" tab both expose this. Every node is a thin wrapper around a shared step function (`backend/app/pipeline/steps.py`), and the individual per-stage REST endpoints call those same functions directly. One implementation per stage, no matter which door you walk in through.
 
-`clinician_review` is a genuine LangGraph `interrupt()`: the node calls
-`interrupt(...)`, which pauses the graph and persists its full state to the
-Postgres checkpointer -- there is no polling loop, the process can restart,
-and the run resumes exactly where it left off. `POST
-/encounters/{id}/pipeline/resume-review` sends `Command(resume=...)` to
-unblock it once the clinician is done acting on the note (accept/edit/reject
--- see `POST .../notes/{note_id}/lines/{line_id}/accept|edit|reject`, each of
-which writes an `Attestation` directly to the DB, independent of the graph's
-own state). Re-invoking `POST .../pipeline/run` while already paused
-restarts the graph from `START` rather than resuming the interrupt in place
--- safe here only because every earlier step is idempotent per encounter, so
-the replay is a no-op and the graph lands back on the same pending review.
+The interesting part is `clinician_review`: it's a genuine LangGraph `interrupt()`. The node calls it, the graph pauses and persists its entire state to Postgres, and there's no polling loop involved — the process can restart and the run resumes exactly where it left off once `POST /encounters/{id}/pipeline/resume-review` sends the signal to continue. The clinician's actual accept/edit/reject actions happen through their own endpoints and write directly to the database, independent of the graph's state — the interrupt is purely a pause point, not a data pipe.
 
-Signing, amending, and FHIR export (Phase 8) are deliberately **not** graph
-nodes -- they're clinician-triggered actions (`POST .../notes/{id}/sign`,
-`POST .../notes/amend`, `POST .../notes/{id}/export-fhir`) that happen after
-the graph has already finished, on whatever cadence the clinician chooses.
-Putting them in the graph would force a single linear order (sign, *then*
-stop) when in practice a note can be amended and re-signed multiple times,
-or exported more than once, independent of any one pipeline run.
+Signing, amending, and exporting to FHIR happen *after* the graph finishes, as their own clinician-triggered actions rather than graph nodes — a note can be amended and re-signed more than once, or exported more than once, and forcing that into a single linear graph run would fight against how review actually happens.
 
-*Implementation note:* the trace endpoint identifies which node produced
-each checkpoint by diffing state keys against a fixed key→node map, rather
-than trusting LangGraph's checkpoint `tasks`/metadata fields -- those proved
-inconsistent about which node they attributed a given checkpoint to across
-runs in the installed LangGraph version (1.2.9). Diffing state is fully
-deterministic since each node writes a distinct, non-overlapping key.
+<details>
+<summary>A couple of implementation notes, if you're curious</summary>
 
-### Domain model
+- The pipeline trace endpoint figures out which node produced a given checkpoint by diffing state keys against a fixed key→node map, rather than trusting LangGraph's own checkpoint metadata — that metadata turned out to be inconsistent about node attribution across runs in the installed LangGraph version (1.2.9). Diffing state is fully deterministic since every node writes a distinct key.
+- Re-invoking `POST .../pipeline/run` while the graph is already paused restarts it from the top rather than resuming the interrupt in place. That's safe *only* because every earlier step is idempotent per encounter — the replay is a no-op and the graph lands right back on the same pending review.
 
-The claim graph is modeled as plain Postgres rows (`claims` + `claim_edges`)
-rather than a dedicated graph database, to keep the stack to one datastore.
-A graph database such as Neo4j would be a reasonable upgrade if claim volume
-or traversal complexity ever outgrows relational joins.
+</details>
 
-| Entity | Purpose |
+### Data model
+
+The claim graph lives as plain Postgres rows (`claims` + `claim_edges`) rather than a dedicated graph database, to keep the stack to one datastore. If claim volume or traversal complexity ever outgrows relational joins, something like Neo4j would be a reasonable upgrade.
+
+| Entity | What it's for |
 |---|---|
-| `Encounter` | One patient visit; status: in_progress → drafted → reviewed → signed |
+| `Encounter` | One patient visit. Status moves `in_progress → drafted → reviewed → signed` |
 | `TranscriptSegment` | One speaker-labeled, timestamped utterance |
-| `Claim` | One atomic clinical statement, always carrying a `source_type` + `source_reference` |
-| `ClaimEdge` | Typed relationship between two claims: supports / contradicts / refines / duplicates / depends_on_temporal_context |
-| `SoapNote` / `SoapNoteLine` | A versioned compiled note; every line cites its source claim(s). Signing a version freezes it -- further changes create a new version (`create_next_note_version_step`) rather than mutating a signed one |
-| `ClarificationQuestion` | Generated when the policy engine flags missing context; answering it creates a new claim, never a silent default. Signing a note is blocked while any of these are unresolved |
-| `Attestation` | Timestamped clinician action (accept/edit/reject/add/sign) forming the audit lineage |
-| `GroundingCitation` | Links a claim (or policy verdict, from Phase 5) to a retrieved guideline/drug-data/prior-encounter passage |
-| `MockEhrSubmission` | One FHIR bundle handed to the mock EHR receiving endpoint (Phase 8); the full bundle is stored verbatim for replay/inspection |
+| `Claim` | One atomic clinical statement, always carrying a source type + reference |
+| `ClaimEdge` | A typed relationship between two claims — supports, contradicts, refines, duplicates, depends-on-temporal-context |
+| `SoapNote` / `SoapNoteLine` | A versioned compiled note. Signing freezes a version; further changes start a new one rather than mutating a signed record |
+| `ClarificationQuestion` | Raised when the policy engine flags missing context. Answering it creates a new claim — never a silent default. Signing is blocked while any of these are open |
+| `Attestation` | A timestamped clinician action (accept/edit/reject/add/sign) — the audit lineage |
+| `GroundingCitation` | Links a claim to a retrieved guideline, drug-data, or prior-encounter passage |
+| `MockEhrSubmission` | One FHIR bundle handed to the mock EHR endpoint, stored verbatim for replay |
 
 ### Tech stack
 
 - **Backend**: FastAPI, SQLAlchemy 2.0, Alembic, Postgres + pgvector, Python 3.11
-- **Reasoning**: Claude (Anthropic) via structured outputs, orchestrated with LangGraph (from Phase 5)
-- **Retrieval**: pgvector for two RAG indexes (clinical knowledge, longitudinal patient history), with local embeddings via `fastembed`/`bge-small-en-v1.5` -- see [deviations](#deviations-from-the-original-brief) below
-- **Validation**: Pydantic schemas via `client.messages.parse()` for every structured Claude output, plus defensive re-validation of every model-generated cross-reference (segment/claim index) at both the service and API layers -- see [deviations](#deviations-from-the-original-brief) re: Guardrails AI
-- **Observability**: none beyond structured logging -- see [deviations](#deviations-from-the-original-brief) re: Langfuse
-- **FHIR export**: `fhir.resources` (R4B) building Composition/Observation/Condition/DocumentReference, handed to a mock EHR receiving endpoint (Phase 8)
-- **ASR**: raw audio ingestion behind a small provider interface (`app/services/transcription_service.py`), AssemblyAI as the only implementation (Phase 9) -- see [deviations](#deviations-from-the-original-brief) re: "Universal 3 Pro" / "Medical Mode"
+- **Reasoning**: Claude via structured outputs, orchestrated with LangGraph
+- **Retrieval**: pgvector across two RAG indexes (clinical knowledge, longitudinal patient history), local embeddings via `fastembed` / `bge-small-en-v1.5`
+- **FHIR export**: `fhir.resources` (R4B) building Composition/Observation/Condition/DocumentReference, handed to a mock EHR endpoint
+- **ASR**: raw audio behind a small provider interface, AssemblyAI as the only implementation
 - **Frontend**: React + TypeScript + Vite, TanStack Query, React Router, Tailwind v4
+
+(A handful of things the original spec named — LangChain, a hosted embeddings API, Guardrails AI, Langfuse — aren't here. See [Where this diverges from the spec](#where-this-diverges-from-the-spec) for the honest reasons why.)
 
 ## Running it
 
 Requires Docker Desktop.
 
 ```bash
-cp .env.example .env        # ANTHROPIC_API_KEY is only needed for live extraction/graph-building -- see Walkthrough
+cp .env.example .env        # ANTHROPIC_API_KEY only matters for live extraction — see Take it for a spin, below
 docker compose up --build
 ```
 
 - API: http://localhost:8000 (docs at `/docs`)
 - Frontend: http://localhost:5173
-- Postgres: localhost:5433 (user/pass/db: `ceg`/`ceg`/`ceg`)
+- Postgres: `localhost:5433` (user/pass/db: `ceg`/`ceg`/`ceg`)
 
-Seed demo data -- three encounters, plus the RAG knowledge base and the
-RxNorm/SNOMED/LOINC vocabulary index. Every step short of live claim
-extraction and edge generation (the two that genuinely require Claude) is
-exercised through the real application code, not reimplemented for the
-seed -- see [Walkthrough](#walkthrough) for what to look at in each one:
+Then seed some demo data:
 
 ```bash
 docker compose exec api python -m app.seed
 ```
 
-1. **Contradiction, mid-review** -- a patient/caregiver timeline conflict, compiled into a note with a merged conflict line and left `under_review`, unsigned -- explore the accept/edit/reject/sign workflow yourself.
-2. **Clinical safety flag, signed + exported** -- amoxicillin prescribed despite a documented penicillin allergy, taken all the way through signing and a real FHIR export to the mock EHR.
-3. **Missing context, unresolved** -- a vague symptom report with its clarification question still open -- try signing it and see the block.
+This creates three encounters, the RAG knowledge base, and the RxNorm/SNOMED/LOINC vocabulary index. Claim extraction and edge generation are the only two steps that genuinely need a live Claude call, so the seed script hand-authors just those two — everything downstream of them (grounding, terminology normalization, SOAP compilation, FHIR export) runs through the real, unmodified application code. What you see is exactly what those code paths produce, not a mockup.
 
-No `ANTHROPIC_API_KEY` is required for any of this -- claim extraction and
-edge generation are the only two steps that need a live Claude call, and
-the seed script bypasses just those two with realistic, hand-authored
-claims/edges. RAG grounding, terminology normalization, SOAP compilation,
-and FHIR export are all real, pgvector-backed / Claude-free code paths, so
-what you see is exactly what those code paths produce, not a mockup.
+1. **A contradiction, mid-review** — a patient/caregiver timeline conflict, compiled into a note and left unsigned so you can try the review workflow yourself.
+2. **A clinical safety flag, signed and exported** — amoxicillin prescribed despite a documented penicillin allergy, carried all the way through signing and a real FHIR export.
+3. **Missing context, left open** — a vague symptom report with its clarification question still unanswered. Try signing it.
 
-The first run downloads the local embedding model (~30MB, cached after) to
-embed the knowledge base and vocabulary index.
+The first run downloads a small local embedding model (~30MB, cached after that) to embed the knowledge base and vocabulary index.
 
-### Local (non-Docker) development
+<details>
+<summary>Local (non-Docker) development</summary>
 
 ```bash
 cd backend
@@ -169,116 +110,83 @@ npm install
 npm run dev
 ```
 
+</details>
+
 ### Tests
 
 ```bash
-cd backend
-pytest
+cd backend && pytest
 ```
 
 ### Evaluation harness
 
 ```bash
 cd backend
-python -m eval.run_eval --mode mock   # default; no API key needed
-python -m eval.run_eval --mode live   # calls Claude for real; needs a funded ANTHROPIC_API_KEY
+python -m eval.run_eval --mode mock   # default, no API key needed
+python -m eval.run_eval --mode live   # calls Claude for real, needs a funded ANTHROPIC_API_KEY
 ```
 
-Runs the golden dataset (`eval/golden_dataset.py`) through claim extraction
-and the policy engine's status-derivation logic, reporting extraction
-precision/recall/F1 and status-derivation accuracy. `--mode live` is the
-one that actually measures the model's real-world accuracy; it's written
-and ready to run but hasn't been run against a funded key while building
-this project (see [Known limitations](#known-limitations-by-design-for-this-prototype)).
-`--mode mock` scores the same logic against hand-authored stand-in
-responses instead, so the harness's own scoring code and the app's
-`derive_claim_status` precedence logic (the exact function
-`app/services/policy_engine.py` runs, not a reimplementation) are verified
-without spending API credits.
+This runs a small golden dataset through claim extraction and the policy engine's status logic, and reports precision/recall/F1 plus status-accuracy. `--mode live` is the one that actually measures the model's real-world accuracy — it's written and ready to go, but hasn't been run against a funded key while building this (see [limitations](#what-isnt-here-yet)). `--mode mock` scores the same pipeline against hand-authored stand-in responses instead, which at least proves the harness's own scoring logic and the app's status-derivation function are correct without spending a cent.
 
-## Walkthrough
+## Take it for a spin
 
-Everything below works immediately after `docker compose up --build` +
-`python -m app.seed` -- no `ANTHROPIC_API_KEY` required.
+Everything below works right after `docker compose up --build` + `python -m app.seed` — no API key required.
 
-1. Open http://localhost:5173 and pick the **contradiction, mid-review**
-   encounter. Its **Claim Graph** tab shows the patient's "three days" and
-   the caregiver's "since last week" kept side by side under "Conflicting
-   accounts," not blended into one timeline. Its **SOAP Note** tab shows the
-   same conflict compiled into a single labeled line -- try **Edit** to
-   reword it, **Reject** to drop it, then **Sign note** (blocked with a 409
-   if you haven't resolved every clarification for the encounter, though
-   this one has none). Check **Audit & Lineage** afterward: your action is
-   now in the attestation trail, right next to the LangGraph run trace for
-   how the note got compiled in the first place.
-2. Open the **clinical safety flag, signed + exported** encounter. Its
-   **Claim Graph** tab shows the amoxicillin-vs-penicillin-allergy conflict
-   under "Clinical safety flags," with the rationale grounded in the
-   seeded drug-interaction fact. Its **SOAP Note** tab is already signed;
-   click **Export to EHR (FHIR)** again to add a second submission, then
-   look at **Audit & Lineage** to see the FHIR bundle's resource count and
-   the full sign timestamp.
-3. Open the **missing context, unresolved** encounter and check the
-   **Clarifications** tab -- the open question is still there. Try
-   compiling and signing its note yourself and see the 409 explaining
-   exactly which clarification is blocking it; answer the question (which
-   creates a new `clinician_judgment` claim) and the block clears.
-4. To see live extraction and graph-building instead of the seeded
-   stand-ins: add a funded `ANTHROPIC_API_KEY` to `.env`, restart the `api`
-   container, create a new encounter, add a transcript, and click **Run
-   full pipeline** from the **Audit & Lineage** tab -- it runs the real
-   LangGraph pipeline end to end and pauses at the clinician-review
-   interrupt for you to act on. Raw audio upload (the **Transcript** tab's
-   "Upload raw audio" panel) additionally needs a funded
-   `ASSEMBLYAI_API_KEY`.
+1. Open http://localhost:5173 and pick the **contradiction, mid-review** encounter. Its **Claim Graph** tab keeps the patient's "three days" and the caregiver's "since last week" side by side under "Conflicting accounts" — never blended into one timeline. Its **SOAP Note** tab shows that same conflict compiled into one labeled line. Try **Edit** to reword it, **Reject** to drop it, then **Sign note**. Check **Audit & Lineage** afterward and you'll find your action sitting right next to the LangGraph trace of how the note got compiled in the first place.
+2. Open the **clinical safety flag, signed + exported** encounter. Its **Claim Graph** tab shows the amoxicillin-vs-penicillin-allergy conflict under "Clinical safety flags," grounded in a seeded drug-interaction fact. Click **Export to EHR (FHIR)** again to add a second submission, then look at **Audit & Lineage** for the bundle's resource count and the sign timestamp.
+3. Open the **missing context** encounter and check the **Clarifications** tab — the question is still open. Try signing the note and read the error explaining exactly what's blocking it. Answer the clarification and the block clears.
+4. Want to see live extraction instead of the seeded stand-ins? Add a funded `ANTHROPIC_API_KEY` to `.env`, restart the `api` container, create a new encounter, add a transcript, and hit **Run full pipeline** from **Audit & Lineage**. It runs the real thing end to end and pauses at the clinician-review interrupt for you to act on. Raw audio upload additionally needs a funded `ASSEMBLYAI_API_KEY`.
 
-## Build phases
+## How it got built
 
-Each phase lands as a runnable increment; see the repo's task history / commits for what's actually shipped so far.
+Ten phases, each one a working, tested, committed increment — nothing here is a facade.
 
-1. **Scaffold** -- FastAPI, Postgres+pgvector via Docker Compose, all domain models, Alembic migrations, health check, React+TS+Vite shell. ✅ done
-2. **Ingestion + claim extraction** -- diarized transcript ingestion, Claude-backed structured claim extraction (`client.messages.parse()` + `output_config.format`), mock EHR context ingestion, transcript + claim list views. ✅ done
-3. **Graph construction** -- Claude-backed claim edge generation (supports/contradicts/refines/duplicates/depends_on_temporal_context), claim graph view with contradictions surfaced side by side rather than merged. ✅ done
-4. **RAG grounding** -- clinical knowledge index (guideline/documentation-requirement/drug-interaction snippets) + longitudinal patient history index (prior encounter notes), both pgvector-backed with local embeddings; grounding citations retrievable per claim; citation panel in the claim graph view. ✅ done
-5. **LangGraph + zero-trust policy engine** -- state graph (ingest -> extract_claims -> build_graph -> ground_claims -> run_policy_engine) with a Postgres checkpointer; 5-part policy engine (support, contradiction, temporal ambiguity, missing context, clinical safety) grounded in Phase 4's retrieved evidence; clarification question generator; run trace endpoint + view; clarification queue with an answer flow that creates a new `clinician_judgment` claim. ✅ done
-6. **Terminology normalization** -- pgvector-backed RxNorm/SNOMED CT/LOINC embedding index (a small curated subset, not a full vocabulary download -- see deviations below), wired in as the 6th LangGraph node (`normalize_terminology`, appended after `run_policy_engine`); maps each surviving claim's concept to a code, skipping claims blocked by the support check. ✅ done
-7. **SOAP compilation + review workspace** -- claims grouped into subjective/objective/assessment/plan (`compile_soap_note_step`, appended to the LangGraph pipeline as `compile_soap_note`); contradicted claim pairs merged into one labeled conflict line rather than picked between; a genuine LangGraph `interrupt()` at `clinician_review` that pauses the graph and resumes via `Command(resume=...)`; SOAP Note tab with accept/edit/reject per line, each writing an `Attestation`; rejecting a single-claim line also marks the underlying claim `rejected` so it's excluded from any future recompile. ✅ done
-8. **Signing, versioning, FHIR export** -- signing locks a note version and is blocked while any clarification for the encounter is unresolved (`POST .../notes/{id}/sign`); amending starts a fresh draft version recompiled from current claims once the latest version is signed (`POST .../notes/amend`, `create_next_note_version_step`), never mutating the signed one; FHIR R4B export (Composition + per-line Observation/Condition with normalized codes + a DocumentReference wrapping the Composition, `app/services/fhir_export.py`) for signed notes only, handed to a mock EHR receiving endpoint (`MockEhrSubmission`); combined audit/lineage view (attestation trail + EHR submissions + LangGraph trace) in the "Audit & Lineage" tab. ✅ done
-9. **Raw audio ingestion** -- a preview/commit flow (`POST .../transcript/audio/preview` then `POST .../transcript/audio/commit`) rather than a single call, since AssemblyAI's diarization only returns anonymous speaker labels ("A", "B", ...) -- there's no way to know which one is the patient without a human assigning it, and committing is rejected outright if any detected speaker is left unmapped, so an utterance is never silently dropped. `AssemblyAIProvider` implements the transcription call (upload -> submit -> poll) directly via `httpx` against AssemblyAI's REST API; an "Upload raw audio" panel in the Transcript tab drives the whole flow, including per-speaker role assignment before saving. ✅ done
-10. **Evaluation harness + polish** -- a golden dataset (`eval/golden_dataset.py`) covering a clean supported claim, a patient/caregiver contradiction, a missing-context claim, and a clinical safety flag, scored by `eval/run_eval.py` in either `--mode live` (real Claude calls) or `--mode mock` (deterministic stand-ins, so the harness's own scoring logic is verified without spending API credits -- see [Evaluation harness](#evaluation-harness)); `derive_claim_status` pulled out of the policy engine into its own function so the harness scores the exact precedence logic the app runs; 3 seeded demo encounters covering the contradiction/safety-flag/missing-context scenarios end-to-end without needing an API key; a [Walkthrough](#walkthrough) section; SECURITY.md and this README brought current with Phases 7-9 (including correcting two things earlier phases had gotten ahead of themselves on: Langfuse was never actually implemented despite being listed as done, and `MOCK_EHR_BASE_URL`/Langfuse settings were dead config, now removed). ✅ done
+| # | Phase |
+|---|---|
+| 1 | Scaffold: FastAPI + Postgres/pgvector + Docker Compose, full domain model, React/TS/Vite shell |
+| 2 | Ingestion + claim extraction: Claude turns transcript segments into atomic, source-cited claims |
+| 3 | Claim graph: Claude links claims by relationship (supports/contradicts/refines/duplicates/temporal) |
+| 4 | RAG grounding: two pgvector indexes (clinical knowledge, patient history), local embeddings |
+| 5 | LangGraph + the policy engine: the pipeline becomes a checkpointed state graph; the 5-check zero-trust engine goes live |
+| 6 | Terminology normalization: claims get mapped to RxNorm/SNOMED/LOINC codes |
+| 7 | SOAP compilation + review: a real `interrupt()` pauses the graph for a human; note editor with accept/edit/reject |
+| 8 | Signing, versioning, FHIR export: sign a note, amend it later, export it to a mock EHR as a FHIR bundle |
+| 9 | Raw audio: AssemblyAI-backed transcription with a preview/commit flow so no speaker is ever silently dropped |
+| 10 | Eval harness + polish: golden dataset, accuracy scoring, richer seed data, this README |
 
-## Deviations from the original brief
+Full detail lives in the commit history — every phase landed as its own commit with a real "what and why" message, not a squashed dump at the end.
 
-- **RAG retrieval layer: direct pgvector queries via SQLAlchemy, not LangChain's `PGVector` vectorstore.** The brief specifies LangChain for the retrieval layer. This build queries `clinical_knowledge_chunks` / `patient_history_chunks` directly with pgvector's `cosine_distance()` operator instead. Reasoning: LangChain's `PGVector` abstraction manages its own storage tables, which would sit awkwardly alongside this project's existing SQLAlchemy domain models (`GroundingCitation` needs to reference retrieved chunks by our own IDs regardless of how the vectorstore is implemented internally), and the retrieval logic here is simple enough (two tables, cosine similarity, optional patient-scoping) that the direct approach is fewer moving parts for a fast-moving prototype. If the retrieval logic grows more complex (hybrid search, re-ranking, multiple retrievers), LangChain's abstractions would earn their keep and this is a reasonable place to introduce them.
-- **Local embeddings (`fastembed` / `bge-small-en-v1.5`, 384-dim) instead of a hosted embeddings API.** Anthropic doesn't offer an embeddings endpoint and recommends Voyage AI for production use. This prototype uses a small local ONNX model instead so it doesn't need a second paid API key beyond `ANTHROPIC_API_KEY` -- everything else (claim extraction, edge generation) already depends on Claude, and requiring a second vendor's credits just to demo grounding felt like unnecessary friction for a portfolio build. Swapping in Voyage AI (or any other embeddings provider) later is a small, isolated change confined to `app/services/embedding_service.py`.
-- **Policy engine calls the Claude service module directly, not via a LangChain chain/runnable.** `langchain-core` is present only as `langgraph`'s own transitive dependency (message/state types); the full `langchain` package is unused. Same reasoning as the retrieval-layer deviation above -- one fewer abstraction layer between the policy engine and the exact structured-output contract it needs.
-- **Vocabulary index (Phase 6) is a small curated subset (~20 terms), not a real RxNorm/SNOMED CT/LOINC download.** These are large, licensed terminologies (RxNorm and SNOMED CT in particular require UMLS/SNOMED International licensing) unsuitable for bundling into a portfolio prototype. The seeded codes are well-known concept IDs that appear throughout public FHIR examples and clinical terminology tutorials, chosen to cover this build's demo scenarios (chest pain, penicillin allergy, vitals); verify against an authoritative source before any real use. The normalization mechanism itself (embedding search + code system routing by claim type) is the same approach a real deployment would use against the full terminologies.
-- **No Guardrails AI, no Langfuse.** The original brief's Phase 5 tech stack names both: Guardrails AI as an independent schema-validation layer ahead of the policy engine, and Langfuse for tracing every Claude call. Neither is wired in. In their place: every structured Claude call already goes through `client.messages.parse()` against a Pydantic schema (rejecting anything malformed before it reaches application code), and every model-generated cross-reference -- a segment index in claim extraction, a claim index in edge generation -- is independently re-validated against the actual set sent, both in the service module and again defensively at the API layer (see "never trust a raw citation" in `claude_service.py`'s docstrings). That covers the same failure mode Guardrails AI targets (a malformed or hallucinated structured output) without an extra dependency; it does not cover Langfuse's role (call-level tracing/observability across a session), which is a genuine gap for anyone extending this project -- adding it would mean wrapping the Anthropic client in `claude_service.py`, the single isolation point for all Claude calls.
-- **FHIR export targets R4B, not plain R4.** `fhir.resources` 7.x+ (this build uses 8.3.0) dropped a separate plain-R4 namespace in favor of R4B, its actively maintained successor; there's no `fhir.resources.R4` to import even if requested explicitly. This is a version-numbering detail, not a content deviation for the resource types this build actually uses -- Composition, Observation, Condition, and DocumentReference are unchanged between R4 and R4B.
-- **No "AssemblyAI Universal 3 Pro" or "Medical Mode".** The brief names both specifically for Phase 9. This build uses AssemblyAI's real, documented API surface instead: `speech_model="best"` (their standard top-tier model) plus `speaker_labels=True` for diarization and a boosted custom vocabulary of clinical terms (`word_boost`) as the practical analog to "Medical Mode" -- a distinctly-branded "Universal 3 Pro" + "Medical Mode" combination isn't part of AssemblyAI's confirmed public API as of this build. The provider is fully isolated in `app/services/transcription_service.py`, so swapping the model string (or wiring in a real medical-specific mode flag, if AssemblyAI ships one) is a one-line change.
+## Where this diverges from the spec
 
-## Known limitations (by design, for this prototype)
+The original brief specified a few particular tools. Some of them didn't make the cut, on purpose:
 
-- No production ASR/diarization engine is built from scratch; raw audio ingestion wraps AssemblyAI behind a small provider interface (`app/services/transcription_service.py`) so the vendor is swappable.
-- **Audio ingestion is verified with a mocked provider, not a live AssemblyAI key.** No `ASSEMBLYAI_API_KEY` was available while building this (same situation Phase 2 started in with the Anthropic key). The preview/commit endpoints, the speaker-mapping validation, and the UI flow are all tested and verified end-to-end against the real API server and Postgres with the provider mocked at the same seam the tests use (`app.api.transcripts.get_transcription_provider`) -- the one thing not exercised against the real world is AssemblyAI's actual transcription quality and response shape for a genuine audio file.
-- Uploaded audio is transcribed and then discarded -- it is never written to disk or object storage. A production deployment handling real recordings would need a retention policy for the source audio, not just the resulting transcript.
-- No live EHR integration -- FHIR export hands its bundle to `record_ehr_submission`, an in-process function standing in for a real receiving endpoint, rather than making an actual HTTP round trip to itself. A real deployment would replace this with a genuine outbound call to the target EHR's FHIR API.
-- Only the four resource types the brief names (Composition, Observation, Condition, DocumentReference) are exported -- no `MedicationStatement`/`AllergyIntolerance`/`Patient`/`Practitioner` resources. Medication and allergy claims still export as coded `Observation`s (RxNorm-coded where normalized); a production export would give them their own proper resource types, and `Patient`/`Practitioner` references currently point at this app's own `users` table ids rather than real FHIR resources.
-- **Signing is blocked only on unresolved clarification questions**, not on unresolved clinical-safety flags. A claim with `status == unsafe` can still be signed into a note (it's clearly flagged in the Claim Graph tab and inline in the note text throughout). Real clinical practice sometimes does knowingly override a safety flag with documented justification, and this prototype doesn't yet have a clean way to capture that justification distinctly from an ordinary line edit -- so rather than a hard block with no override path, the flag stays visible and the decision stays with the clinician.
-- No HIPAA-grade hosting, SOC 2, or FDA pathway -- see `SECURITY.md` for what a real deployment would still need.
-- LangGraph's Postgres checkpointer preserves state across the clinician-review pause, but is **not** full durable execution across process crashes. Acceptable for this prototype; a layer like the Temporal LangGraph plugin would close that gap in production.
-- **SOAP section assignment is a fixed claim-type -> section map**, not clinical judgment (e.g. `medication`/`allergy`/`plan_item` all route to Plan; `symptom`/`history`/`other` all route to Subjective). Real SOAP notes are more nuanced -- e.g. a medication *reconciliation* often belongs in Subjective/history rather than Plan. Documented in `app/pipeline/steps.py::_CLAIM_TYPE_TO_SECTION` as a defensible first-draft default, not a claim of clinical accuracy.
-- **Compiling a SOAP note is idempotent once per version, not continuously live.** Once a note version exists, `compile_soap_note_step` returns it unchanged rather than regenerating it -- so a claim added after compilation (e.g. from answering a clarification mid-review) will not automatically appear on the current draft. This is deliberate: a clinician's in-progress review should never be silently regenerated out from under them. Picking up a late-arriving claim requires signing the current version and calling `POST .../notes/amend` to start the next one (Phase 8) -- there's no way to pull a new claim into an *unsigned* draft short of rejecting/re-adding lines by hand.
-- **The evaluation harness has never scored a real Claude call.** `eval/run_eval.py --mode live` calls the actual `extract_claims_from_transcript`/`run_policy_checks` functions and is ready to run, but no funded `ANTHROPIC_API_KEY` was available while building this project (same situation Phase 2 started in). Every number the harness has actually produced so far is from `--mode mock`, which only proves the scoring logic and the app's `derive_claim_status` precedence logic are correct -- it says nothing about the real model's extraction or policy-check accuracy. The golden dataset itself is also small (4 examples) and would need to grow substantially before its numbers meant much even in live mode.
-- The golden dataset's `contradicts_history` field (semantic contradiction against retrieved patient history, as opposed to the structural contradiction from a claim-graph edge) is never exercised -- none of the 4 examples set it, so that half of the contradiction check's precedence logic has eval coverage only via `tests/test_policy_engine.py`, not the harness.
+| The spec asked for | What's here instead | Why |
+|---|---|---|
+| LangChain's `PGVector` vectorstore | Direct pgvector queries via SQLAlchemy | Two tables and cosine similarity don't need an abstraction layer yet — this is the natural place to add one if retrieval ever gets more complex (hybrid search, re-ranking, multiple retrievers) |
+| A hosted embeddings API | Local `fastembed` (`bge-small-en-v1.5`, ONNX, no torch) | Didn't want to require a second paid API key just to demo grounding, on top of the Claude key everything else already needs |
+| Policy engine via a LangChain chain | Calls the Claude service module directly | Same reasoning as above — one fewer layer between the engine and the exact structured-output contract it needs |
+| A full RxNorm/SNOMED CT/LOINC download | A curated ~20-term subset | These are large, licensed terminologies (UMLS/SNOMED International licensing) that don't belong bundled into a portfolio build. The matching mechanism itself — embedding search, routed by claim type — is the same one a real deployment would run against the full thing |
+| Guardrails AI + Langfuse | Neither is wired in | Every Claude call already goes through `client.messages.parse()` against a Pydantic schema, and every model-cited cross-reference gets independently re-validated — that covers Guardrails' job (rejecting malformed output) without an extra dependency. Langfuse's job (call-level tracing) is a genuine, currently-open gap for anyone extending this |
+| Plain FHIR R4 | FHIR **R4B** | `fhir.resources` 8.x dropped the plain-R4 namespace in favor of R4B; the four resource types actually used here (Composition/Observation/Condition/DocumentReference) are identical in content between the two |
+| AssemblyAI "Universal 3 Pro" + "Medical Mode" | `speech_model="best"` + `speaker_labels` + a boosted clinical vocabulary | That exact branded feature combination isn't part of AssemblyAI's confirmed public API. The provider is fully isolated in one file, so swapping the model string later is a one-line change |
 
-## Prior art
+## What isn't here yet
 
-This project's evidence-graph concept is closely related to (and indebted
-to) recent work on evidence-traceable temporal knowledge graphs for
-clinical/literature reasoning, provenance graphs from computational biology,
-and graph-database architectures for tumor-board EHR review -- all of which
-validate the graph-based, source-faithful approach at a systems level, but
-applied to retrospective or literature-backed reasoning rather than a live,
-multi-speaker encounter. See [Why this exists](#why-this-exists) above for
-how this compares to commercial ambient scribes.
+Being upfront about the gaps, because a prototype that pretends to be finished is worse than one that says where it stops:
+
+| Gap | Why it's acceptable for now |
+|---|---|
+| Raw audio ingestion is only verified against a mocked ASR provider | No funded AssemblyAI key existed while building this. The API/DB wiring is tested end-to-end; what's untested is a real recording's actual transcription quality |
+| Uploaded audio is transcribed and immediately discarded | No retention policy is needed yet because nothing is kept — a real deployment handling real recordings would need one |
+| "FHIR export" hands off to an in-process function, not a real outbound HTTP call | It stands in for a receiving endpoint. A production build would replace it with a genuine call to the target EHR's API |
+| Only four FHIR resource types export (Composition/Observation/Condition/DocumentReference) | Matches what the brief asked for — no `MedicationStatement`, `AllergyIntolerance`, or real `Patient`/`Practitioner` resources yet |
+| Signing blocks on unresolved clarifications, but not on unresolved safety flags | Clinicians sometimes knowingly override a safety flag with documented justification, and there's no clean way yet to capture that distinctly from an ordinary edit — so the flag stays visible rather than being a hard, unbypassable block |
+| No HIPAA-grade hosting, SOC 2, or FDA review | See `SECURITY.md` for the honest list |
+| LangGraph's Postgres checkpointer survives a restart, not full durable execution across a crash | A Temporal-style durable-execution layer would close that specific gap in production |
+| SOAP section assignment is a fixed claim-type → section lookup, not clinical judgment | Real SOAP notes are more nuanced than a table (a medication reconciliation, for instance, often belongs in history rather than Plan) |
+| Compiling a note is idempotent once per version, not continuously live | A claim that arrives after compilation won't retroactively appear in an unsigned draft — picking it up means signing the current version and starting a new one |
+| The eval harness has never scored a real Claude call | No funded key. `--mode mock` proves the scoring logic is correct; it says nothing about the model's actual accuracy, and the golden dataset (4 examples) is small enough that even live numbers wouldn't mean much yet |
+
+## Related work
+
+The evidence-graph idea here is closely related to (and indebted to) recent work on evidence-traceable temporal knowledge graphs for clinical and literature reasoning, provenance graphs from computational biology, and graph-database architectures for tumor-board EHR review. All of that validates the graph-based, source-faithful approach at a systems level — just applied to retrospective or literature-backed reasoning rather than a live, multi-speaker encounter. See [Why bother](#why-bother) above for how this stacks up against the commercial ambient scribes.
