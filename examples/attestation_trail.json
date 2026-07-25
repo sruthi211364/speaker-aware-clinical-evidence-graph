@@ -1,0 +1,74 @@
+[
+  {
+    "id": "be9c44d8-ed50-4204-a803-c3c5e764f3c9",
+    "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+    "note_version_id": "f2a43cea-cab1-41a9-b9a8-32490ef788e6",
+    "note_line_id": "1cf37eb0-5aa5-4dea-8237-07e121c1eed7",
+    "claim_id": "6f36a81f-a687-4240-abb9-adf349046701",
+    "actor_id": "d9f4b204-9b8a-4e72-a84a-139c062e9480",
+    "action": "accepted",
+    "before_value": "Patient: patient reports chest pain since three days ago -- vs -- Caregiver: caregiver reports chest pain since last week",
+    "after_value": "Patient: patient reports chest pain since three days ago -- vs -- Caregiver: caregiver reports chest pain since last week",
+    "created_at": "2026-07-24T04:52:48.198638"
+  },
+  {
+    "id": "0461ae1a-ea8f-43f7-9cc4-49b12e3e7cf6",
+    "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+    "note_version_id": "f2a43cea-cab1-41a9-b9a8-32490ef788e6",
+    "note_line_id": "1cf37eb0-5aa5-4dea-8237-07e121c1eed7",
+    "claim_id": "6f36a81f-a687-4240-abb9-adf349046701",
+    "actor_id": "d9f4b204-9b8a-4e72-a84a-139c062e9480",
+    "action": "edited",
+    "before_value": "Patient: patient reports chest pain since three days ago -- vs -- Caregiver: caregiver reports chest pain since last week",
+    "after_value": "Conflicting onset timeline: patient reports 3 days, caregiver reports 1 week -- clarified with patient on follow-up.",
+    "created_at": "2026-07-24T04:56:55.622834"
+  },
+  {
+    "id": "f01285ff-6406-4584-b287-2da9cfb869da",
+    "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+    "note_version_id": "f2a43cea-cab1-41a9-b9a8-32490ef788e6",
+    "note_line_id": "1cf37eb0-5aa5-4dea-8237-07e121c1eed7",
+    "claim_id": "6f36a81f-a687-4240-abb9-adf349046701",
+    "actor_id": "d9f4b204-9b8a-4e72-a84a-139c062e9480",
+    "action": "rejected",
+    "before_value": "Conflicting onset timeline: patient reports 3 days, caregiver reports 1 week -- clarified with patient on follow-up.",
+    "after_value": null,
+    "created_at": "2026-07-24T04:57:04.803217"
+  },
+  {
+    "id": "208afa99-af61-4177-a642-e35d2517c7e7",
+    "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+    "note_version_id": "f2a43cea-cab1-41a9-b9a8-32490ef788e6",
+    "note_line_id": null,
+    "claim_id": null,
+    "actor_id": "d9f4b204-9b8a-4e72-a84a-139c062e9480",
+    "action": "signed",
+    "before_value": null,
+    "after_value": "Signed note version 1",
+    "created_at": "2026-07-24T05:33:30.211296"
+  },
+  {
+    "id": "c410ee4d-0b4d-4bfe-bc37-f879cf2f4de2",
+    "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+    "note_version_id": "ed5cd67e-b3a2-49d6-a476-a38fee2fa66c",
+    "note_line_id": null,
+    "claim_id": null,
+    "actor_id": "d9f4b204-9b8a-4e72-a84a-139c062e9480",
+    "action": "signed",
+    "before_value": null,
+    "after_value": "Signed note version 2",
+    "created_at": "2026-07-24T05:34:00.533795"
+  },
+  {
+    "id": "240d954f-251a-4283-8277-fa13ea5cbeb3",
+    "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+    "note_version_id": "23fed450-5569-4722-b7af-60516bd2dad3",
+    "note_line_id": null,
+    "claim_id": null,
+    "actor_id": "d9f4b204-9b8a-4e72-a84a-139c062e9480",
+    "action": "signed",
+    "before_value": null,
+    "after_value": "Signed note version 3",
+    "created_at": "2026-07-24T12:18:42.688184"
+  }
+]

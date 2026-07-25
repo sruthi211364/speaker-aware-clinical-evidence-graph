@@ -137,6 +137,8 @@ Everything below works right after `docker compose up --build` + `python -m app.
 3. Open the **missing context** encounter and check the **Clarifications** tab — the question is still open. Try signing the note and read the error explaining exactly what's blocking it. Answer the clarification and the block clears.
 4. Want to see live extraction instead of the seeded stand-ins? Add a funded `ANTHROPIC_API_KEY` to `.env`, restart the `api` container, create a new encounter, add a transcript, and hit **Run full pipeline** from **Audit & Lineage**. It runs the real thing end to end and pauses at the clinician-review interrupt for you to act on. Raw audio upload additionally needs a funded `ASSEMBLYAI_API_KEY`.
 
+Don't want to run any of this yourself? [`examples/`](examples/) has real output pulled straight from the running system — the compiled note with its merged conflict line, a full LangGraph run trace, an exported FHIR bundle, and the attestation trail behind it.
+
 ## How it got built
 
 Ten phases, each one a working, tested, committed increment — nothing here is a facade.

@@ -1,0 +1,172 @@
+[
+  {
+    "node": null,
+    "step": -1,
+    "next": [
+      "__start__"
+    ],
+    "result": null,
+    "values": {}
+  },
+  {
+    "node": null,
+    "step": 0,
+    "next": [
+      "ingest"
+    ],
+    "result": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d"
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d"
+    }
+  },
+  {
+    "node": "ingest",
+    "step": 1,
+    "next": [
+      "extract_claims"
+    ],
+    "result": {
+      "transcript_segment_count": 3
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3
+    }
+  },
+  {
+    "node": "extract_claims",
+    "step": 2,
+    "next": [
+      "build_graph"
+    ],
+    "result": {
+      "claim_count": 2
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3,
+      "claim_count": 2
+    }
+  },
+  {
+    "node": "build_graph",
+    "step": 3,
+    "next": [
+      "ground_claims"
+    ],
+    "result": {
+      "edge_count": 1
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3,
+      "claim_count": 2,
+      "edge_count": 1
+    }
+  },
+  {
+    "node": "ground_claims",
+    "step": 4,
+    "next": [
+      "run_policy_engine"
+    ],
+    "result": {
+      "citation_count": 8
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3,
+      "claim_count": 2,
+      "edge_count": 1,
+      "citation_count": 8
+    }
+  },
+  {
+    "node": "run_policy_engine",
+    "step": 5,
+    "next": [
+      "normalize_terminology"
+    ],
+    "result": {
+      "verdict_count": 10,
+      "open_clarification_count": 0
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3,
+      "claim_count": 2,
+      "edge_count": 1,
+      "citation_count": 8,
+      "verdict_count": 10,
+      "open_clarification_count": 0
+    }
+  },
+  {
+    "node": "normalize_terminology",
+    "step": 6,
+    "next": [
+      "compile_soap_note"
+    ],
+    "result": {
+      "normalized_claim_count": 2
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3,
+      "claim_count": 2,
+      "edge_count": 1,
+      "citation_count": 8,
+      "verdict_count": 10,
+      "open_clarification_count": 0,
+      "normalized_claim_count": 2
+    }
+  },
+  {
+    "node": "compile_soap_note",
+    "step": 7,
+    "next": [
+      "clinician_review"
+    ],
+    "result": {
+      "note_id": "f2a43cea-cab1-41a9-b9a8-32490ef788e6",
+      "note_version": 1
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3,
+      "claim_count": 2,
+      "edge_count": 1,
+      "citation_count": 8,
+      "verdict_count": 10,
+      "open_clarification_count": 0,
+      "normalized_claim_count": 2,
+      "note_id": "f2a43cea-cab1-41a9-b9a8-32490ef788e6",
+      "note_version": 1
+    }
+  },
+  {
+    "node": "clinician_review",
+    "step": 8,
+    "next": [],
+    "result": {
+      "review_completed": true,
+      "review_decision": "{'action': 'review_complete'}"
+    },
+    "values": {
+      "encounter_id": "14a8b33f-64d8-429d-a8d5-f82f5fe7a11d",
+      "transcript_segment_count": 3,
+      "claim_count": 2,
+      "edge_count": 1,
+      "citation_count": 8,
+      "verdict_count": 10,
+      "open_clarification_count": 0,
+      "normalized_claim_count": 2,
+      "note_id": "f2a43cea-cab1-41a9-b9a8-32490ef788e6",
+      "note_version": 1,
+      "review_completed": true,
+      "review_decision": "{'action': 'review_complete'}"
+    }
+  }
+]

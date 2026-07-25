@@ -1,0 +1,75 @@
+{
+  "claims": [
+    {
+      "id": "17fc499f-3da5-46b5-bd39-f09d101969d0",
+      "encounter_id": "e38d80ae-ec27-45c5-9595-148fb2cad4c1",
+      "text": "caregiver reports the chest pain has been going on since last week",
+      "claim_type": "symptom",
+      "source_type": "caregiver_report",
+      "source_reference": "2402e6d9-1486-4fec-8515-3bbff6d9190e",
+      "confidence": 0.88,
+      "status": "contradicted",
+      "normalized_code_system": "SNOMED",
+      "normalized_code": "29857009",
+      "normalized_display": "Chest pain",
+      "created_at": "2026-07-24T12:33:34.933929",
+      "updated_at": "2026-07-24T12:33:47.805460"
+    },
+    {
+      "id": "3c91c9c5-5571-4d1f-803e-b2262e1e9a6e",
+      "encounter_id": "e38d80ae-ec27-45c5-9595-148fb2cad4c1",
+      "text": "patient denies shortness of breath",
+      "claim_type": "symptom",
+      "source_type": "patient_speech",
+      "source_reference": "33a0e14e-9258-4041-8b47-1a30c20ac911",
+      "confidence": 0.9,
+      "status": "supported",
+      "normalized_code_system": "SNOMED",
+      "normalized_code": "267036007",
+      "normalized_display": "Dyspnea (shortness of breath)",
+      "created_at": "2026-07-24T12:33:34.933929",
+      "updated_at": "2026-07-24T12:33:47.805460"
+    },
+    {
+      "id": "44f39075-27ef-4e0e-925c-0278c026e8ec",
+      "encounter_id": "e38d80ae-ec27-45c5-9595-148fb2cad4c1",
+      "text": "patient reports chest pain for about three days, described as a dull ache",
+      "claim_type": "symptom",
+      "source_type": "patient_speech",
+      "source_reference": "ef909435-66b7-4373-a315-9afa4759d688",
+      "confidence": 0.92,
+      "status": "contradicted",
+      "normalized_code_system": "SNOMED",
+      "normalized_code": "29857009",
+      "normalized_display": "Chest pain",
+      "created_at": "2026-07-24T12:33:34.933929",
+      "updated_at": "2026-07-24T12:33:47.805460"
+    },
+    {
+      "id": "51992458-1843-449f-a9d7-876e325e4a87",
+      "encounter_id": "e38d80ae-ec27-45c5-9595-148fb2cad4c1",
+      "text": "patient denies radiation of the chest pain",
+      "claim_type": "symptom",
+      "source_type": "patient_speech",
+      "source_reference": "33a0e14e-9258-4041-8b47-1a30c20ac911",
+      "confidence": 0.85,
+      "status": "supported",
+      "normalized_code_system": "SNOMED",
+      "normalized_code": "29857009",
+      "normalized_display": "Chest pain",
+      "created_at": "2026-07-24T12:33:34.933929",
+      "updated_at": "2026-07-24T12:33:47.805460"
+    }
+  ],
+  "edges": [
+    {
+      "id": "aabda12f-c6c5-4f0b-a509-b3c687cd9b3d",
+      "source_claim_id": "44f39075-27ef-4e0e-925c-0278c026e8ec",
+      "target_claim_id": "17fc499f-3da5-46b5-bd39-f09d101969d0",
+      "relation": "contradicts",
+      "rationale": "Different onset timelines reported by patient (three days) vs. caregiver (since last week) for the same symptom.",
+      "confidence": 0.87,
+      "created_at": "2026-07-24T12:33:34.942462"
+    }
+  ]
+}

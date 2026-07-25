@@ -1,0 +1,48 @@
+{
+  "id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
+  "encounter_id": "e38d80ae-ec27-45c5-9595-148fb2cad4c1",
+  "version": 1,
+  "status": "under_review",
+  "signed_by": null,
+  "signed_at": null,
+  "created_at": "2026-07-24T12:33:47.912965",
+  "lines": [
+    {
+      "id": "53822115-01fe-4496-be37-9b70930a996e",
+      "note_id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
+      "section": "subjective",
+      "position": 0,
+      "text": "Patient: patient reports chest pain for about three days, described as a dull ache -- vs -- Caregiver: caregiver reports the chest pain has been going on since last week",
+      "is_conflict": true,
+      "is_rejected": false,
+      "claim_ids": [
+        "44f39075-27ef-4e0e-925c-0278c026e8ec",
+        "17fc499f-3da5-46b5-bd39-f09d101969d0"
+      ]
+    },
+    {
+      "id": "88fd191a-a751-4b6a-91df-07fdd2732f11",
+      "note_id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
+      "section": "subjective",
+      "position": 1,
+      "text": "Patient: patient denies shortness of breath",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "3c91c9c5-5571-4d1f-803e-b2262e1e9a6e"
+      ]
+    },
+    {
+      "id": "0e891313-d76d-423a-b248-bddd06228585",
+      "note_id": "8b8d7bd2-218f-4221-9558-611c6f5fb81d",
+      "section": "subjective",
+      "position": 2,
+      "text": "Patient: patient denies radiation of the chest pain",
+      "is_conflict": false,
+      "is_rejected": false,
+      "claim_ids": [
+        "51992458-1843-449f-a9d7-876e325e4a87"
+      ]
+    }
+  ]
+}
